@@ -1,3 +1,35 @@
+import { z } from "zod";
+
+export const ListGmailMessagesQuerySchema = z.object({
+  query: z.string().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+export const GetGmailMessageParamsSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+export const CreateGmailDraftRequestSchema = z.object({
+  to: z.array(z.string().email()).min(1),
+  cc: z.array(z.string().email()).optional(),
+  bcc: z.array(z.string().email()).optional(),
+  subject: z.string().min(1),
+  body: z.string().min(1),
+});
+
+export const SendGmailMessageRequestSchema = z.object({
+  to: z.array(z.string().email()).min(1),
+  cc: z.array(z.string().email()).optional(),
+  bcc: z.array(z.string().email()).optional(),
+  subject: z.string().min(1),
+  body: z.string().min(1),
+});
+
+export const SendGmailDraftParamsSchema = z.object({
+  draftId: z.string().min(1),
+});
+
 export type GmailMessageSummary = {
   id: string;
   threadId?: string;

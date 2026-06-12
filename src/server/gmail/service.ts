@@ -1,4 +1,5 @@
 import { getTenant } from "../corsair/tenant";
+import { mapGmailMessageDetail, mapGmailMessageSummary } from "./mapper";
 
 export const getGmailMessages = async (input: {
   query?: string;
@@ -19,13 +20,17 @@ export const getGmailMessages = async (input: {
     limit: input.limit ?? 20,
     offset: input.offset ?? 0,
   });
-  return messages;
+  return {
+    messages: Array.isArray(messages)
+      ? messages.map(mapGmailMessageSummary)
+      : messages,
+  };
 };
 
 export const getGmailMessageById = async (id: string) => {
   const tenant = getTenant();
   const messageById = await tenant.gmail.db.messages.findById(id);
-  return messageById;
+  return messageById ? mapGmailMessageDetail(messageById) : null;
 };
 
 export const createGmailDraft = async (input: {
