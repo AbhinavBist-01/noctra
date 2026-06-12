@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { authClient } from "@/server/better-auth/auth-client";
 
 type View = "inbox" | "calendar" | "drafts";
 
@@ -11,6 +12,7 @@ type GmailMessage = {
   to?: string[];
   subject?: string;
   snippet?: string;
+  body?: string;
   receivedAt?: string;
   labels?: string[];
 };
@@ -41,6 +43,9 @@ const isEmailAction = (a: PreviewAction): a is PreviewAction & { type: "email_dr
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+const fetchApi = (path: string, init?: RequestInit) =>
+  fetch(`${API}${path}`, { ...init, credentials: "include" });
+
 const formatDate = (iso?: string) => {
   if (!iso) return "";
   return new Date(iso).toLocaleString();
@@ -49,9 +54,15 @@ const formatDate = (iso?: string) => {
 const Sidebar = ({
   view,
   onViewChange,
+  session,
+  onSignIn,
+  onSignOut,
 }: {
   view: View;
   onViewChange: (v: View) => void;
+  session: { user: { email: string; name?: string } } | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }) => {
   const items: { key: View; label: string; icon: string }[] = [
     { key: "inbox", label: "Inbox", icon: "📬" },
@@ -78,6 +89,29 @@ const Sidebar = ({
           <span>{item.label}</span>
         </button>
       ))}
+
+      <div className="mt-auto border-t border-zinc-800 pt-3">
+        {session ? (
+          <div className="space-y-2 px-3">
+            <div className="truncate text-xs text-zinc-500">
+              {session.user.email}
+            </div>
+            <button
+              onClick={onSignOut}
+              className="w-full rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onSignIn}
+            className="w-full rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700"
+          >
+            Sign in
+          </button>
+        )}
+      </div>
     </nav>
   );
 };
@@ -199,7 +233,17 @@ const CalendarView = ({
   );
 };
 
-const MessageDetail = ({ message }: { message: GmailMessage | null }) => {
+const MessageDetail = ({
+  message,
+  loading,
+  onReply,
+  onForward,
+}: {
+  message: GmailMessage | null;
+  loading: boolean;
+  onReply: (msg: GmailMessage) => void;
+  onForward: (msg: GmailMessage) => void;
+}) => {
   if (!message) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
@@ -209,17 +253,36 @@ const MessageDetail = ({ message }: { message: GmailMessage | null }) => {
   }
 
   return (
-    <div className="p-4">
-      <div className="text-lg font-medium text-zinc-100">{message.subject}</div>
-      <div className="mt-2 text-sm text-zinc-400">From: {message.from}</div>
-      <div className="text-sm text-zinc-400">
-        To: {message.to?.join(", ")}
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="text-lg font-medium text-zinc-100">
+          {message.subject}
+        </div>
+        <div className="mt-2 text-sm text-zinc-400">From: {message.from}</div>
+        <div className="text-sm text-zinc-400">
+          To: {message.to?.join(", ")}
+        </div>
+        <div className="mt-1 text-xs text-zinc-500">
+          {formatDate(message.receivedAt)}
+        </div>
+        <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+          {loading ? "Loading..." : message.body || message.snippet}
+        </div>
       </div>
-      <div className="mt-1 text-xs text-zinc-500">
-        {formatDate(message.receivedAt)}
-      </div>
-      <div className="mt-4 text-sm leading-relaxed text-zinc-300">
-        {message.snippet}
+
+      <div className="flex gap-2 border-t border-zinc-800 p-3">
+        <button
+          onClick={() => onReply(message)}
+          className="flex-1 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+        >
+          Reply
+        </button>
+        <button
+          onClick={() => onForward(message)}
+          className="flex-1 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+        >
+          Forward
+        </button>
       </div>
     </div>
   );
@@ -227,28 +290,41 @@ const MessageDetail = ({ message }: { message: GmailMessage | null }) => {
 
 const CommandBar = ({
   onExecute,
+  suggestion,
+  onClearSuggestion,
 }: {
   onExecute: (cmd: string) => void;
+  suggestion?: string;
+  onClearSuggestion: () => void;
 }) => {
   const [input, setInput] = useState("");
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (suggestion) {
+      setInput(suggestion);
+      ref.current?.focus();
+    }
+  }, [suggestion]);
+
+  useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setInput("");
+        onClearSuggestion();
         ref.current?.blur();
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [onClearSuggestion]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
       onExecute(input.trim());
       setInput("");
+      onClearSuggestion();
     }
   };
 
@@ -390,21 +466,41 @@ export default function Home() {
   const [messages, setMessages] = useState<GmailMessage[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<GmailMessage | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewAction[] | null>(null);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [session, setSession] = useState<{ user: { email: string; name?: string } } | null>(null);
+  const [suggestion, setSuggestion] = useState<string | undefined>();
 
-  const selectedMessage = messages.find((m) => m.id === selectedId) ?? null;
+  const selectedMessage = selectedDetail ?? messages.find((m) => m.id === selectedId) ?? null;
+
+  useEffect(() => {
+    authClient.getSession().then((res) => {
+      if (res.data) setSession(res.data as any);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) { setSelectedDetail(null); return; }
+    setDetailLoading(true);
+    fetchApi(`/api/gmail/messages/${selectedId}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => setSelectedDetail(json?.data ?? null))
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  }, [selectedId]);
 
   const refreshInbox = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNextCursor(undefined);
     try {
-      const res = await fetch(`${API}/api/gmail/messages?limit=30`);
+      const res = await fetchApi("/api/gmail/messages?limit=30");
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       setMessages(json.data?.messages ?? json.data ?? []);
@@ -420,7 +516,7 @@ export default function Home() {
     if (!nextCursor) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(`${API}/api/gmail/messages?limit=30&cursor=${nextCursor}`);
+      const res = await fetchApi(`/api/gmail/messages?limit=30&cursor=${nextCursor}`);
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       const newMessages: GmailMessage[] = json.data?.messages ?? json.data ?? [];
@@ -437,7 +533,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/api/calendar/events`);
+      const res = await fetchApi("/api/calendar/events");
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       setEvents(json.data?.events ?? json.data ?? []);
@@ -457,7 +553,7 @@ export default function Home() {
     async (command: string) => {
       setError(null);
       try {
-        const res = await fetch(`${API}/api/command/preview`, {
+        const res = await fetchApi("/api/command/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ command }),
@@ -482,7 +578,7 @@ export default function Home() {
     setExecuting(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/api/command/execute`, {
+      const res = await fetchApi("/api/command/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actions: preview }),
@@ -498,10 +594,39 @@ export default function Home() {
     }
   }, [preview, view, refreshInbox, refreshCalendar]);
 
+  const handleSignIn = useCallback(async () => {
+    await authClient.signIn.social({ provider: "github" });
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    await authClient.signOut();
+    setSession(null);
+  }, []);
+
+  const handleReply = useCallback((msg: GmailMessage) => {
+    const body = msg.body || msg.snippet || "";
+    setSuggestion(
+      `Send email to ${msg.from ?? ""} with subject Re: ${msg.subject ?? ""} and body ${body.slice(0, 200)}`,
+    );
+  }, []);
+
+  const handleForward = useCallback((msg: GmailMessage) => {
+    const body = msg.body || msg.snippet || "";
+    setSuggestion(
+      `Send email to  with subject Fwd: ${msg.subject ?? ""} and body ${body.slice(0, 200)}`,
+    );
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar view={view} onViewChange={setView} />
+        <Sidebar
+          view={view}
+          onViewChange={setView}
+          session={session}
+          onSignIn={handleSignIn}
+          onSignOut={handleSignOut}
+        />
 
         <div className="flex flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
@@ -544,11 +669,22 @@ export default function Home() {
         </div>
 
         <div className="hidden w-80 border-l border-zinc-800 md:block">
-          {view === "inbox" && <MessageDetail message={selectedMessage} />}
+          {view === "inbox" && (
+            <MessageDetail
+              message={selectedMessage}
+              loading={detailLoading}
+              onReply={handleReply}
+              onForward={handleForward}
+            />
+          )}
         </div>
       </div>
 
-      <CommandBar onExecute={handleCommand} />
+      <CommandBar
+        onExecute={handleCommand}
+        suggestion={suggestion}
+        onClearSuggestion={() => setSuggestion(undefined)}
+      />
 
       {preview && (
         <PreviewModal
