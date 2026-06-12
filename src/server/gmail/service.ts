@@ -1,6 +1,6 @@
 import { getTenant } from "../corsair/tenant";
 
-export const listGmailMessages = async (input: {
+export const getGmailMessages = async (input: {
   query?: string;
   limit?: number;
   offset?: number;
@@ -22,25 +22,22 @@ export const listGmailMessages = async (input: {
   return messages;
 };
 
-export const getGmailMessage = async (id: string) => {
+export const getGmailMessageById = async (id: string) => {
   const tenant = getTenant();
   const messageById = await tenant.gmail.db.messages.findById(id);
   return messageById;
 };
 
 export const createGmailDraft = async (input: {
-  to: string;
+  to: string[];
   subject: string;
-  cc?: string;
-  bcc?: string;
+  cc?: string[];
+  bcc?: string[];
   body: string;
 }) => {
   const tenant = getTenant();
 
-  // upsertByEntityId expects an entityId as the first argument.
-  // Generate a stable-enough entityId for the draft if one isn't provided.
-  const entityId = `${input.to}-${Date.now()}`;
-  const draft = await tenant.gmail.db.drafts.upsertByEntityId(entityId, {
+  const draft = await tenant.gmail.api.drafts.create({
     to: input.to,
     subject: input.subject,
     cc: input.cc,
@@ -52,28 +49,29 @@ export const createGmailDraft = async (input: {
 
 export const sendGmailDraft = async (draftId: string) => {
   const tenant = getTenant();
-  const sentDraft = await tenant.gmail.db.drafts.findById({ draftId } as any);
+  const sentDraft = await tenant.gmail.api.drafts.send({ draftId } as any);
   return sentDraft;
 };
 
 export const sendGmailMessage = async (input: {
-  to: string;
+  to: string[];
   subject: string;
-  cc?: string;
-  bcc?: string;
+  cc?: string[];
+  bcc?: string[];
   body: string;
 }) => {
   const tenant = getTenant();
-  const entityId = `${input.to}-${Date.now()}`;
-  const sentMessage = await tenant.gmail.db.messages.upsertByEntityId(
-    entityId,
-    {
-      to: input.to,
-      subject: input.subject,
-      cc: input.cc,
-      bcc: input.bcc,
-      body: input.body,
-    } as any,
-  );
+  const sentMessage = await tenant.gmail.api.messages.send({
+    to: input.to,
+    subject: input.subject,
+    cc: input.cc,
+    bcc: input.bcc,
+    body: input.body,
+  } as any);
   return sentMessage;
+};
+
+export const refreshGmailMessages = async () => {
+  const tenant = getTenant();
+  await tenant.gmail.api.threads.list({});
 };
