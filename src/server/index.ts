@@ -1,5 +1,8 @@
+import "dotenv/config";
 import { app } from "./app";
 
-app.listen(process.env.EXPRESS_PORT || 3000, () => {
-  console.log("Server is running...");
+const PORT = process.env.EXPRESS_PORT ?? 4000;
+
+app.listen(PORT, () => {
+  console.log(`[Express] Server running on http://localhost:${PORT}`);
 });
