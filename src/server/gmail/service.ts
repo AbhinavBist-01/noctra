@@ -13,29 +13,32 @@ import type {
 export const getGmailMessages = async (input: {
   query?: string;
   limit?: number;
-  offset?: number;
+  cursor?: string;
 }) => {
   try {
     const tenant = getTenant();
+    const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
+    const limit = input.limit ?? 20;
 
     if (input.query) {
       const params: GmailDbSearchParams = {
         query: input.query,
-        limit: input.limit ?? 20,
-        offset: input.offset ?? 0,
+        limit,
+        offset,
       };
       return tenant.gmail.db.messages.search(params as any);
     }
 
-    const params: GmailDbListParams = {
-      limit: input.limit ?? 20,
-      offset: input.offset ?? 0,
-    };
-    const messages = await tenant.gmail.db.messages.list(params as any);
+    const params: GmailDbListParams = { limit: limit + 1, offset };
+    const raw = await tenant.gmail.db.messages.list(params as any);
+    const allMessages = Array.isArray(raw) ? raw : [];
+
+    const hasMore = allMessages.length > limit;
+    const messages = hasMore ? allMessages.slice(0, limit) : allMessages;
+
     return {
-      messages: Array.isArray(messages)
-        ? messages.map(mapGmailMessageSummary)
-        : messages,
+      messages: messages.map(mapGmailMessageSummary),
+      nextCursor: hasMore ? String(offset + limit) : undefined,
     };
   } catch (error) {
     throw new AppError(

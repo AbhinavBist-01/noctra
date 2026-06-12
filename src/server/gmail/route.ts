@@ -23,7 +23,7 @@ gmailRoute.get("/messages", async (req, res) => {
   const result = await getGmailMessages({
     query: query.query,
     limit: query.limit ?? 20,
-    offset: query.offset ?? 0,
+    cursor: query.cursor,
   });
   res.status(200).json({ data: result });
 });

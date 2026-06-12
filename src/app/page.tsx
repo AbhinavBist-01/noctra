@@ -36,6 +36,9 @@ type PreviewAction = {
   attendees?: { email: string; name?: string }[];
 };
 
+const isEmailAction = (a: PreviewAction): a is PreviewAction & { type: "email_draft" | "email_send" } =>
+  a.type === "email_draft" || a.type === "email_send";
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const formatDate = (iso?: string) => {
@@ -84,13 +87,17 @@ const InboxList = ({
   selectedId,
   onSelect,
   loading,
+  hasMore,
+  onLoadMore,
 }: {
   messages: GmailMessage[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   loading: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
 }) => {
-  if (loading) {
+  if (loading && messages.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
         Loading messages...
@@ -132,6 +139,15 @@ const InboxList = ({
           </div>
         </button>
       ))}
+      {hasMore && (
+        <button
+          onClick={onLoadMore}
+          disabled={loading}
+          className="w-full px-4 py-3 text-center text-sm text-zinc-500 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300 disabled:opacity-40"
+        >
+          {loading ? "Loading..." : "Load more"}
+        </button>
+      )}
     </div>
   );
 };
@@ -262,16 +278,28 @@ const CommandBar = ({
 
 const PreviewModal = ({
   actions,
+  onActionsChange,
   onConfirm,
   onCancel,
   loading,
 }: {
   actions: PreviewAction[];
+  onActionsChange: (actions: PreviewAction[]) => void;
   onConfirm: () => void;
   onCancel: () => void;
   loading: boolean;
 }) => {
   if (actions.length === 0) return null;
+
+  const toggleMode = (id: string) => {
+    onActionsChange(
+      actions.map((a) =>
+        a.id === id && isEmailAction(a)
+          ? { ...a, type: a.type === "email_draft" ? "email_send" : "email_draft" }
+          : a,
+      ),
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -285,12 +313,26 @@ const PreviewModal = ({
               key={action.id}
               className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-3"
             >
-              <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                {action.type === "email_draft"
-                  ? "📝 Draft Email"
-                  : action.type === "email_send"
-                    ? "📨 Send Email"
-                    : "📅 Calendar Invite"}
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  {action.type === "email_draft"
+                    ? "📝 Draft Email"
+                    : action.type === "email_send"
+                      ? "📨 Send Email"
+                      : "📅 Calendar Invite"}
+                </div>
+                {isEmailAction(action) && (
+                  <button
+                    onClick={() => toggleMode(action.id)}
+                    className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                      action.type === "email_draft"
+                        ? "bg-amber-900/50 text-amber-400 hover:bg-amber-800/50"
+                        : "bg-emerald-900/50 text-emerald-400 hover:bg-emerald-800/50"
+                    }`}
+                  >
+                    {action.type === "email_draft" ? "Draft" : "Send"}
+                  </button>
+                )}
               </div>
               {action.type !== "calendar_invite" && (
                 <>
@@ -352,23 +394,44 @@ export default function Home() {
   const [preview, setPreview] = useState<PreviewAction[] | null>(null);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const selectedMessage = messages.find((m) => m.id === selectedId) ?? null;
 
   const refreshInbox = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNextCursor(undefined);
     try {
       const res = await fetch(`${API}/api/gmail/messages?limit=30`);
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       setMessages(json.data?.messages ?? json.data ?? []);
+      setNextCursor(json.data?.nextCursor);
     } catch {
       setError(`Could not connect to API at ${API}`);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`${API}/api/gmail/messages?limit=30&cursor=${nextCursor}`);
+      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      const json = await res.json();
+      const newMessages: GmailMessage[] = json.data?.messages ?? json.data ?? [];
+      setMessages((prev) => [...prev, ...newMessages]);
+      setNextCursor(json.data?.nextCursor);
+    } catch {
+      setError(`Could not connect to API at ${API}`);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor]);
 
   const refreshCalendar = useCallback(async () => {
     setLoading(true);
@@ -464,7 +527,9 @@ export default function Home() {
                 messages={messages}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                loading={loading}
+                loading={loading || loadingMore}
+                hasMore={!!nextCursor}
+                onLoadMore={loadMore}
               />
             )}
             {view === "calendar" && (
@@ -488,6 +553,7 @@ export default function Home() {
       {preview && (
         <PreviewModal
           actions={preview}
+          onActionsChange={setPreview}
           onConfirm={handleConfirm}
           onCancel={() => setPreview(null)}
           loading={executing}

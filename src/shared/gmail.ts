@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ListGmailMessagesQuerySchema = z.object({
   query: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
-  offset: z.coerce.number().int().min(0).optional(),
+  cursor: z.string().optional(),
 });
 
 export const GetGmailMessageParamsSchema = z.object({
@@ -48,7 +48,7 @@ export type GmailMessageDetail = GmailMessageSummary & {
 
 export type ListGmailMessagesResponse = {
   messages: GmailMessageSummary[];
-  nextOffset?: number;
+  nextCursor?: string;
 };
 
 export type CreateGmailDraftRequest = {
