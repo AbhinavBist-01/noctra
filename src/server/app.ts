@@ -12,14 +12,16 @@ import { requireAuth } from "./middleware/auth";
 
 export const app = express();
 
-app.use(cors({
-  origin: "http://localhost:3000",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(requestLogger);
 
-app.all("/api/auth/*", auth.handler);
+app.all("/api/auth/:path*", auth.handler);
 
 app.use("/api/health", healthRoute);
 app.use("/api/gmail", requireAuth, gmailRoute);
