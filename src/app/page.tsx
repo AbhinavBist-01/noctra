@@ -43,9 +43,6 @@ const isEmailAction = (a: PreviewAction): a is PreviewAction & { type: "email_dr
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-const fetchApi = (path: string, init?: RequestInit) =>
-  fetch(`${API}${path}`, { ...init, credentials: "include" });
-
 const formatDate = (iso?: string) => {
   if (!iso) return "";
   return new Date(iso).toLocaleString();
@@ -461,10 +458,77 @@ const PreviewModal = ({
   );
 };
 
+const SignInOverlay = ({
+  onSignIn,
+}: {
+  onSignIn: () => void;
+}) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+    <div className="mx-4 w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 p-8 text-center shadow-2xl">
+      <div className="text-lg font-semibold text-zinc-100">Sign in required</div>
+      <div className="mt-2 text-sm text-zinc-400">
+        You need to sign in to use Noctra.
+      </div>
+      <button
+        onClick={onSignIn}
+        className="mt-6 w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-200"
+      >
+        Sign in with GitHub
+      </button>
+    </div>
+  </div>
+);
+
+const DraftsList = ({
+  drafts,
+  loading,
+}: {
+  drafts: GmailMessage[];
+  loading: boolean;
+}) => {
+  if (loading && drafts.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
+        Loading drafts...
+      </div>
+    );
+  }
+
+  if (drafts.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
+        No drafts found.
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-zinc-800">
+      {drafts.map((d) => (
+        <div
+          key={d.id}
+          className="px-4 py-3"
+        >
+          <div className="text-sm font-medium text-zinc-100">
+            {d.subject ?? "(no subject)"}
+          </div>
+          <div className="mt-0.5 text-xs text-zinc-500">
+            To: {d.to?.join(", ") ?? "No recipients"}
+          </div>
+          <div className="mt-0.5 line-clamp-1 text-xs text-zinc-500">
+            {d.snippet}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function Home() {
   const [view, setView] = useState<View>("inbox");
   const [messages, setMessages] = useState<GmailMessage[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [drafts, setDrafts] = useState<GmailMessage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<GmailMessage | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -476,8 +540,18 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [session, setSession] = useState<{ user: { email: string; name?: string } } | null>(null);
   const [suggestion, setSuggestion] = useState<string | undefined>();
+  const [authRequired, setAuthRequired] = useState(false);
 
   const selectedMessage = selectedDetail ?? messages.find((m) => m.id === selectedId) ?? null;
+
+  const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
+    const res = await fetch(`${API}${path}`, { ...init, credentials: "include" });
+    if (res.status === 401) {
+      setAuthRequired(true);
+      return null;
+    }
+    return res;
+  }, []);
 
   useEffect(() => {
     authClient.getSession().then((res) => {
@@ -488,19 +562,20 @@ export default function Home() {
   useEffect(() => {
     if (!selectedId) { setSelectedDetail(null); return; }
     setDetailLoading(true);
-    fetchApi(`/api/gmail/messages/${selectedId}`)
-      .then((res) => res.ok ? res.json() : null)
+    apiFetch(`/api/gmail/messages/${selectedId}`)
+      .then((res) => res?.json() ?? null)
       .then((json) => setSelectedDetail(json?.data ?? null))
       .catch(() => {})
       .finally(() => setDetailLoading(false));
-  }, [selectedId]);
+  }, [selectedId, apiFetch]);
 
   const refreshInbox = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNextCursor(undefined);
     try {
-      const res = await fetchApi("/api/gmail/messages?limit=30");
+      const res = await apiFetch("/api/gmail/messages?limit=30");
+      if (!res) return;
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       setMessages(json.data?.messages ?? json.data ?? []);
@@ -510,13 +585,14 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
 
   const loadMore = useCallback(async () => {
     if (!nextCursor) return;
     setLoadingMore(true);
     try {
-      const res = await fetchApi(`/api/gmail/messages?limit=30&cursor=${nextCursor}`);
+      const res = await apiFetch(`/api/gmail/messages?limit=30&cursor=${nextCursor}`);
+      if (!res) return;
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       const newMessages: GmailMessage[] = json.data?.messages ?? json.data ?? [];
@@ -527,13 +603,14 @@ export default function Home() {
     } finally {
       setLoadingMore(false);
     }
-  }, [nextCursor]);
+  }, [nextCursor, apiFetch]);
 
   const refreshCalendar = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchApi("/api/calendar/events");
+      const res = await apiFetch("/api/calendar/events");
+      if (!res) return;
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
       const json = await res.json();
       setEvents(json.data?.events ?? json.data ?? []);
@@ -542,22 +619,40 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiFetch]);
+
+  const refreshDrafts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/gmail/drafts");
+      if (!res) return;
+      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      const json = await res.json();
+      setDrafts(json.data?.drafts ?? json.data ?? []);
+    } catch {
+      setError(`Could not connect to API at ${API}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch]);
 
   useEffect(() => {
     if (view === "inbox") refreshInbox();
     if (view === "calendar") refreshCalendar();
-  }, [view, refreshInbox, refreshCalendar]);
+    if (view === "drafts") refreshDrafts();
+  }, [view, refreshInbox, refreshCalendar, refreshDrafts]);
 
   const handleCommand = useCallback(
     async (command: string) => {
       setError(null);
       try {
-        const res = await fetchApi("/api/command/preview", {
+        const res = await apiFetch("/api/command/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ command }),
         });
+        if (!res) return;
         if (!res.ok) { setError(`Server error: ${res.status}`); return; }
         const json = await res.json();
         const actions: PreviewAction[] = json.data?.actions ?? [];
@@ -570,7 +665,7 @@ export default function Home() {
         setError(`Could not connect to API at ${API}`);
       }
     },
-    [],
+    [apiFetch],
   );
 
   const handleConfirm = useCallback(async () => {
@@ -578,11 +673,12 @@ export default function Home() {
     setExecuting(true);
     setError(null);
     try {
-      const res = await fetchApi("/api/command/execute", {
+      const res = await apiFetch("/api/command/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actions: preview }),
       });
+      if (!res) return;
       if (!res.ok) { setError(`Execution failed: ${res.status}`); return; }
       setPreview(null);
       if (view === "inbox") refreshInbox();
@@ -592,15 +688,17 @@ export default function Home() {
     } finally {
       setExecuting(false);
     }
-  }, [preview, view, refreshInbox, refreshCalendar]);
+  }, [preview, view, refreshInbox, refreshCalendar, apiFetch]);
 
   const handleSignIn = useCallback(async () => {
+    setAuthRequired(false);
     await authClient.signIn.social({ provider: "github" });
   }, []);
 
   const handleSignOut = useCallback(async () => {
     await authClient.signOut();
     setSession(null);
+    setAuthRequired(true);
   }, []);
 
   const handleReply = useCallback((msg: GmailMessage) => {
@@ -634,7 +732,7 @@ export default function Home() {
               {view === "inbox" ? "Inbox" : view === "calendar" ? "Calendar" : "Drafts"}
             </div>
             <button
-              onClick={view === "inbox" ? refreshInbox : refreshCalendar}
+              onClick={view === "inbox" ? refreshInbox : view === "calendar" ? refreshCalendar : refreshDrafts}
               className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
             >
               Refresh
@@ -661,9 +759,7 @@ export default function Home() {
               <CalendarView events={events} loading={loading} />
             )}
             {view === "drafts" && (
-              <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
-                Drafts will appear here after creating them via command.
-              </div>
+              <DraftsList drafts={drafts} loading={loading} />
             )}
           </div>
         </div>
@@ -694,6 +790,10 @@ export default function Home() {
           onCancel={() => setPreview(null)}
           loading={executing}
         />
+      )}
+
+      {authRequired && (
+        <SignInOverlay onSignIn={handleSignIn} />
       )}
     </div>
   );

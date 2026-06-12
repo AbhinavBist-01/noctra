@@ -133,6 +133,20 @@ export const sendGmailMessage = async (input: {
   }
 };
 
+export const getGmailDrafts = async () => {
+  try {
+    const tenant = getTenant();
+    const raw = await tenant.gmail.db.drafts.list({} as any);
+    const drafts = Array.isArray(raw) ? raw : [];
+    return { drafts: drafts.map((d: any) => mapGmailMessageSummary(d.message ?? d)) };
+  } catch (error) {
+    throw new AppError(
+      "CORSAIR_ERROR",
+      `Failed to list drafts: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+};
+
 export const refreshGmailMessages = async () => {
   try {
     const tenant = getTenant();

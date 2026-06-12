@@ -6,6 +6,7 @@ import {
   sendGmailDraft,
   refreshGmailMessages,
   sendGmailMessage,
+  getGmailDrafts,
 } from "./service";
 import {
   CreateGmailDraftRequestSchema,
@@ -50,6 +51,11 @@ gmailRoute.post("/send", async (req, res) => {
   const body = validate(SendGmailMessageRequestSchema, req.body);
   const result = await sendGmailMessage(body);
 
+  res.status(200).json({ data: result });
+});
+
+gmailRoute.get("/drafts", async (_req, res) => {
+  const result = await getGmailDrafts();
   res.status(200).json({ data: result });
 });
 
