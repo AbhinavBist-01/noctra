@@ -1,11 +1,11 @@
 import express from "express";
 import cors from "cors";
-import { auth } from "./better-auth/auth";
 import { healthRoute } from "./health/health.route";
 import { gmailRoute } from "./gmail/route";
 import { calendarRoute } from "./calendar/route";
 import { commandRoute } from "./command/route";
 import { webhookRoute } from "./webhooks/route";
+import { authRoute } from "./better-auth/route";
 import { requestLogger } from "./middleware/request-logger";
 import { errorHandler } from "./middleware/error-handler";
 import { requireAuth } from "./middleware/auth";
@@ -21,7 +21,7 @@ app.use(
 app.use(express.json());
 app.use(requestLogger);
 
-app.all("/api/auth/:path*", auth.handler);
+app.use("/api/auth", authRoute);
 
 app.use("/api/health", healthRoute);
 app.use("/api/gmail", requireAuth, gmailRoute);
