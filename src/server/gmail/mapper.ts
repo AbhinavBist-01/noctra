@@ -1,4 +1,5 @@
 import type { GmailMessageDetail, GmailMessageSummary } from "@/shared/gmail";
+import { classifyGmailPriority } from "./priority";
 
 type GmailHeader = {
   name?: string;
@@ -75,7 +76,12 @@ export const mapGmailMessageSummary = (
     snippet: message.snippet,
     receivedAt: getReceivedAt(message),
     labels: message.labelIds,
-    priority: "normal",
+    priority: classifyGmailPriority({
+      from: getHeader(message, "from"),
+      subject: getHeader(message, "subject"),
+      snippet: message.snippet,
+      labels: message.labelIds,
+    }),
   };
 };
 
