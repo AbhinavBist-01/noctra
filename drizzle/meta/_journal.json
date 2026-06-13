@@ -15,6 +15,13 @@
       "when": 1781337889147,
       "tag": "0001_amazing_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781339120361,
+      "tag": "0002_faithful_fallen_one",
+      "breakpoints": true
     }
   ]
 }
