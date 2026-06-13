@@ -31,7 +31,7 @@ export const requireAuth = async (
     const session = await auth.api.getSession({ headers });
 
     if (!session) {
-      throw new AppError("VALIDATION_ERROR", "Unauthorized — sign in required");
+      throw new AppError("UNAUTHORIZED", "Unauthorized — sign in required");
     }
 
     req.session = session as Request["session"];
@@ -40,7 +40,7 @@ export const requireAuth = async (
     if (error instanceof AppError) {
       next(error);
     } else {
-      next(new AppError("VALIDATION_ERROR", "Unauthorized — invalid session"));
+      next(new AppError("UNAUTHORIZED", "Unauthorized — invalid session"));
     }
   }
 };

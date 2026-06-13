@@ -20,6 +20,7 @@ export const errorHandler = (
       },
     };
     const status = err.code === "VALIDATION_ERROR" ? 400
+      : err.code === "UNAUTHORIZED" ? 401
       : err.code === "NOT_FOUND" ? 404
       : err.code === "CORSAIR_ERROR" ? 502
       : 500;

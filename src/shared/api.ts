@@ -1,5 +1,6 @@
 export type ApiErrorCode =
   | "VALIDATION_ERROR"
+  | "UNAUTHORIZED"
   | "NOT_FOUND"
   | "CORSAIR_ERROR"
   | "COMMAND_PARSE_ERROR"
