@@ -27,7 +27,7 @@ export const getCalendarEvents = async (input: {
       const events = await tenant.googlecalendar.db.events.search(params as any);
       return {
         events: Array.isArray(events)
-          ? events.map(mapCalendarEventSummary)
+          ? events.map((e: any) => mapCalendarEventSummary(e.data ?? e))
           : events,
       };
     }
@@ -39,7 +39,7 @@ export const getCalendarEvents = async (input: {
     const events = await tenant.googlecalendar.db.events.list(params as any);
     return {
       events: Array.isArray(events)
-        ? events.map(mapCalendarEventSummary)
+        ? events.map((e: any) => mapCalendarEventSummary(e.data ?? e))
         : events,
     };
   } catch (error) {

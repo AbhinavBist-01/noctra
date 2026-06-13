@@ -26,7 +26,10 @@ export const getGmailMessages = async (input: {
         limit,
         offset,
       };
-      return tenant.gmail.db.messages.search(params as any);
+      const raw = await tenant.gmail.db.messages.search(params as any);
+      return Array.isArray(raw)
+        ? raw.map((m: any) => mapGmailMessageSummary(m.data ?? m))
+        : raw;
     }
 
     const params: GmailDbListParams = { limit: limit + 1, offset };
@@ -37,7 +40,7 @@ export const getGmailMessages = async (input: {
     const messages = hasMore ? allMessages.slice(0, limit) : allMessages;
 
     return {
-      messages: messages.map(mapGmailMessageSummary),
+      messages: messages.map((m: any) => mapGmailMessageSummary(m.data ?? m)),
       nextCursor: hasMore ? String(offset + limit) : undefined,
     };
   } catch (error) {
@@ -48,11 +51,12 @@ export const getGmailMessages = async (input: {
   }
 };
 
-export const getGmailMessageById = async (id: string) => {
+export const getGmailMessageById = async (messageId: string) => {
   try {
     const tenant = getTenant();
-    const messageById = await tenant.gmail.db.messages.findById(id);
-    return messageById ? mapGmailMessageDetail(messageById as any) : null;
+    const entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+    if (!entity) return null;
+    return mapGmailMessageDetail(entity.data ?? entity);
   } catch (error) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -150,8 +154,14 @@ export const getGmailDrafts = async () => {
 export const refreshGmailMessages = async () => {
   try {
     const tenant = getTenant();
-    const params: GmailMessageListParams = {};
-    await tenant.gmail.api.messages.list(params as any);
+    const listParams: GmailMessageListParams = { maxResults: 50 };
+    const listRes = await tenant.gmail.api.messages.list(listParams as any);
+    const items = (listRes as any)?.messages ?? [];
+    for (const item of items) {
+      if (item?.id) {
+        await tenant.gmail.api.messages.get({ id: item.id } as any);
+      }
+    }
   } catch (error) {
     throw new AppError(
       "CORSAIR_ERROR",
