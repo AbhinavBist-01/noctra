@@ -27,6 +27,6 @@ app.use("/api/health", healthRoute);
 app.use("/api/gmail", requireAuth, gmailRoute);
 app.use("/api/calendar", requireAuth, calendarRoute);
 app.use("/api/command", requireAuth, commandRoute);
-app.use("/api/webhooks", requireAuth, webhookRoute);
+app.use("/api/webhooks", webhookRoute);
 
 app.use(errorHandler);

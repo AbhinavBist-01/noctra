@@ -5,7 +5,11 @@ export const webhookRoute = Router();
 
 webhookRoute.post("/gmail", async (req, res, next) => {
   try {
-    const result = await processWebhook(req.body);
+    const result = await processWebhook(
+      req.headers as Record<string, string | string[] | undefined>,
+      req.body,
+      req.query as Record<string, string | string[] | undefined>,
+    );
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);
@@ -14,7 +18,11 @@ webhookRoute.post("/gmail", async (req, res, next) => {
 
 webhookRoute.post("/calendar", async (req, res, next) => {
   try {
-    const result = await processWebhook(req.body);
+    const result = await processWebhook(
+      req.headers as Record<string, string | string[] | undefined>,
+      req.body,
+      req.query as Record<string, string | string[] | undefined>,
+    );
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);
