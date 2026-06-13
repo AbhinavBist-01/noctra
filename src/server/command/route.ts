@@ -1,31 +1,7 @@
 import { Router } from "express";
-import { z } from "zod";
 import { previewCommand, executeCommand } from "./service";
+import { PreviewRequestSchema, ExecuteRequestSchema } from "@/shared/command";
 import type { CommandExecuteRequest } from "@/shared/command";
-
-const PreviewRequestSchema = z.object({
-  command: z.string().min(1),
-});
-
-const actionSchema = z.object({
-  id: z.string(),
-  type: z.enum(["email_draft", "email_send", "calendar_invite"]),
-  to: z.array(z.string()).optional(),
-  subject: z.string().optional(),
-  body: z.string().optional(),
-  title: z.string().optional(),
-  description: z.string().optional(),
-  start: z.string().optional(),
-  end: z.string().optional(),
-  timezone: z.string().optional(),
-  attendees: z
-    .array(z.object({ email: z.string(), name: z.string().optional() }))
-    .optional(),
-});
-
-const ExecuteRequestSchema = z.object({
-  actions: z.array(actionSchema),
-});
 
 export const commandRoute = Router();
 
