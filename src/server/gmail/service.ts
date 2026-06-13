@@ -23,13 +23,17 @@ export const getGmailMessages = async (input: {
     if (input.query) {
       const params: GmailDbSearchParams = {
         query: input.query,
-        limit,
+        limit: limit + 1,
         offset,
       };
       const raw = await tenant.gmail.db.messages.search(params as any);
-      return Array.isArray(raw)
-        ? raw.map((m: any) => mapGmailMessageSummary(m.data ?? m))
-        : raw;
+      const allMessages = Array.isArray(raw) ? raw : [];
+      const hasMore = allMessages.length > limit;
+      const messages = hasMore ? allMessages.slice(0, limit) : allMessages;
+      return {
+        messages: messages.map((m: any) => mapGmailMessageSummary(m.data ?? m)),
+        nextCursor: hasMore ? String(offset + limit) : undefined,
+      };
     }
 
     const params: GmailDbListParams = { limit: limit + 1, offset };
