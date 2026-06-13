@@ -583,6 +583,8 @@ export default function Home() {
     setError(null);
     setNextCursor(undefined);
     try {
+      const sync = await apiFetch("/api/gmail/refresh", { method: "POST" });
+      if (!sync) return;
       const res = await apiFetch("/api/gmail/messages?limit=30");
       if (!res) return;
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
@@ -618,6 +620,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
+      const sync = await apiFetch("/api/calendar/refresh", { method: "POST" });
+      if (!sync) return;
       const res = await apiFetch("/api/calendar/events");
       if (!res) return;
       if (!res.ok) { setError(`Server error: ${res.status}`); return; }
