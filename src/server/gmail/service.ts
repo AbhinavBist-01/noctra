@@ -7,7 +7,7 @@ import type {
   GmailDraftCreateParams,
   GmailDraftSendParams,
   GmailMessageSendParams,
-  GmailThreadListParams,
+  GmailMessageListParams,
 } from "../lib/corsair-types";
 
 export const getGmailMessages = async (input: {
@@ -150,8 +150,8 @@ export const getGmailDrafts = async () => {
 export const refreshGmailMessages = async () => {
   try {
     const tenant = getTenant();
-    const params: GmailThreadListParams = {};
-    await tenant.gmail.api.threads.list(params as any);
+    const params: GmailMessageListParams = {};
+    await tenant.gmail.api.messages.list(params as any);
   } catch (error) {
     throw new AppError(
       "CORSAIR_ERROR",

@@ -23,6 +23,15 @@ export type GmailMessageSendParams = {
   threadId?: string;
 };
 
+export type GmailMessageListParams = {
+  userId?: string;
+  q?: string;
+  maxResults?: number;
+  pageToken?: string;
+  labelIds?: string[];
+  includeSpamTrash?: boolean;
+};
+
 export type GmailThreadListParams = {
   userId?: string;
   q?: string;
