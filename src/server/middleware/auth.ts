@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { auth } from "../better-auth/auth";
+import { fromNodeHeaders } from "better-auth/node";
 import type { ApiErrorResponse } from "@/shared/api";
 import { AppError } from "../lib/app-error";
 
@@ -26,7 +27,7 @@ export const requireAuth = async (
   next: NextFunction,
 ) => {
   try {
-    const headers = new Headers(req.headers as Record<string, string>);
+    const headers = fromNodeHeaders(req.headers);
     const session = await auth.api.getSession({ headers });
 
     if (!session) {

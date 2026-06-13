@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import Link from "next/link";
 import { authClient } from "@/server/better-auth/auth-client";
 
 type View = "inbox" | "calendar" | "drafts";
@@ -52,13 +53,11 @@ const Sidebar = ({
   view,
   onViewChange,
   session,
-  onSignIn,
   onSignOut,
 }: {
   view: View;
   onViewChange: (v: View) => void;
   session: { user: { email: string; name?: string } } | null;
-  onSignIn: () => void;
   onSignOut: () => void;
 }) => {
   const items: { key: View; label: string; icon: string }[] = [
@@ -101,12 +100,12 @@ const Sidebar = ({
             </button>
           </div>
         ) : (
-          <button
-            onClick={onSignIn}
-            className="w-full rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700"
+          <Link
+            href="/signin"
+            className="block w-full rounded-lg bg-zinc-800 px-3 py-2 text-center text-sm text-zinc-300 transition-colors hover:bg-zinc-700"
           >
             Sign in
-          </button>
+          </Link>
         )}
       </div>
     </nav>
@@ -469,12 +468,22 @@ const SignInOverlay = ({
       <div className="mt-2 text-sm text-zinc-400">
         You need to sign in to use Noctra.
       </div>
-      <button
-        onClick={onSignIn}
-        className="mt-6 w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-200"
-      >
-        Sign in with GitHub
-      </button>
+
+      <div className="mt-6 space-y-3">
+        <button
+          onClick={onSignIn}
+          className="w-full rounded-lg bg-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-600"
+        >
+          Sign in with GitHub
+        </button>
+
+        <Link
+          href="/signin"
+          className="block w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-200"
+        >
+          Sign in with email
+        </Link>
+      </div>
     </div>
   </div>
 );
@@ -722,7 +731,6 @@ export default function Home() {
           view={view}
           onViewChange={setView}
           session={session}
-          onSignIn={handleSignIn}
           onSignOut={handleSignOut}
         />
 
