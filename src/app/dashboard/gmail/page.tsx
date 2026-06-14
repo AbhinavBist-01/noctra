@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/server/lib/api-client";
 import { CommandBar } from "@/components/command-bar";
 import { PreviewModal } from "@/components/preview-modal";
@@ -73,7 +74,10 @@ export default function GmailPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
-  const [focusTab, setFocusTab] = useState<FocusTab>("important");
+  const [focusTab, setFocusTab] = useState<FocusTab>(() => {
+    if (typeof window === "undefined") return "important";
+    return (localStorage.getItem("gmail:focusTab") as FocusTab) ?? "important";
+  });
   const [focusedIndex, setFocusedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const commandRef = useRef<{ focus: () => void }>(null);
@@ -260,7 +264,7 @@ export default function GmailPage() {
           {!searchQuery && (
             <div className="flex gap-1 border-b border-zinc-800 px-3 py-2">
               <button
-                onClick={() => { setFocusTab("important"); setFocusedIndex(0); }}
+                onClick={() => { setFocusTab("important"); localStorage.setItem("gmail:focusTab", "important"); setFocusedIndex(0); }}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   focusTab === "important"
                     ? "bg-indigo-600/20 text-indigo-300"
@@ -273,7 +277,7 @@ export default function GmailPage() {
                 )}
               </button>
               <button
-                onClick={() => { setFocusTab("all"); setFocusedIndex(0); }}
+                onClick={() => { setFocusTab("all"); localStorage.setItem("gmail:focusTab", "all"); setFocusedIndex(0); }}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   focusTab === "all"
                     ? "bg-zinc-800 text-zinc-200"
@@ -281,19 +285,23 @@ export default function GmailPage() {
                 }`}
               >
                 All Mail
+                {search.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-zinc-700/50 px-1.5 py-0.5 text-[10px] text-zinc-400">{search.length}</span>
+                )}
               </button>
             </div>
           )}
 
           <div ref={listRef} className="flex-1 overflow-y-auto">
+            <AnimatePresence mode="wait">
             {loading && messages.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-sm text-zinc-500">Loading messages...</div>
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center justify-center py-16 text-sm text-zinc-500">Loading messages...</motion.div>
             ) : keyboardList.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-sm text-zinc-500">
+              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center justify-center py-16 text-sm text-zinc-500">
                 {searchQuery ? "No results found" : "No messages. Try refreshing."}
-              </div>
+              </motion.div>
             ) : (
-              <div>
+              <motion.div key={focusTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}>
                 {keyboardList.map((msg, idx) => {
                   const unread = isUnread(msg);
                   const focused = idx === focusedIndex;
@@ -323,8 +331,9 @@ export default function GmailPage() {
                     </div>
                   );
                 })}
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
 
             {nextCursor && (
               <button
