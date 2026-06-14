@@ -91,6 +91,8 @@ export default function GmailPage() {
   const [executing, setExecuting] = useState(false);
   const [suggestion, setSuggestion] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
 
   const selectedMessage =
     selectedDetail ?? messages.find((m) => m.id === selectedId) ?? null;
@@ -101,6 +103,7 @@ export default function GmailPage() {
       return;
     }
     setDetailLoading(true);
+    setSummary(null);
     apiFetch(`/api/gmail/messages/${selectedId}`)
       .then((res) => res.json() ?? null)
       .then((json) => setSelectedDetail(json?.data ?? null))
@@ -155,6 +158,26 @@ export default function GmailPage() {
       setLoadingMore(false);
     }
   }, [nextCursor]);
+
+  const handleSummarize = useCallback(async () => {
+    if (!selectedMessage) return;
+    setSummarizing(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/gmail/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: selectedMessage.id }),
+      });
+      if (!res.ok) { setError(`Summarize failed: ${res.status}`); return; }
+      const json = await res.json();
+      setSummary(json.data?.summary ?? null);
+    } catch {
+      setError(`Could not connect to API at ${API}`);
+    } finally {
+      setSummarizing(false);
+    }
+  }, [selectedMessage]);
 
   const handleCommand = useCallback(async (command: string) => {
     setError(null);
@@ -366,11 +389,24 @@ export default function GmailPage() {
                 <div className="shrink-0 text-right text-xs text-zinc-500">
                   <div>{formatFullDate(selectedMessage.receivedAt)}</div>
                   <div>{formatTime(selectedMessage.receivedAt)}</div>
+                  <button
+                    onClick={handleSummarize}
+                    disabled={summarizing || detailLoading}
+                    className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-40"
+                  >
+                    {summarizing ? "Summarizing..." : "Summarize"}
+                  </button>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto">
                 <div className="px-6 py-4">
+                  {summary && (
+                    <div className="mb-4 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-200">
+                      <div className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Summary</div>
+                      {summary}
+                    </div>
+                  )}
                   <div className="mb-4 rounded-lg bg-zinc-800/50 px-4 py-3 text-sm text-zinc-400">
                     <div className="flex items-baseline gap-2">
                       <span className="w-12 text-xs text-zinc-500 uppercase">
