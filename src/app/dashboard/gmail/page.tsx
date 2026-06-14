@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/server/lib/api-client";
 import { CommandBar } from "@/components/command-bar";
 import { PreviewModal } from "@/components/preview-modal";
+import { ComposeModal } from "@/components/compose-modal";
 import type { CommandPreviewAction } from "@/shared/command";
 
 type GmailMessage = {
@@ -74,6 +75,8 @@ export default function GmailPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [sending, setSending] = useState(false);
   const [focusTab, setFocusTab] = useState<FocusTab>(() => {
     if (typeof window === "undefined") return "important";
     return (localStorage.getItem("gmail:focusTab") as FocusTab) ?? "important";
@@ -156,6 +159,25 @@ export default function GmailPage() {
       else setError("Command parsed but no actions found");
     } catch { setError(`Could not connect to API at ${API}`); }
   }, []);
+
+  const handleSend = useCallback(async (msg: { to: string; subject: string; body: string }) => {
+    setSending(true);
+    try {
+      const res = await apiFetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: [msg.to],
+          subject: msg.subject,
+          body: msg.body,
+        }),
+      });
+      if (!res.ok) { setError(`Send failed: ${res.status}`); return; }
+      setComposeOpen(false);
+      refresh();
+    } catch { setError("Could not connect to API"); }
+    finally { setSending(false); }
+  }, [refresh]);
 
   const handleConfirm = useCallback(async () => {
     if (!preview || preview.length === 0) return;
@@ -241,6 +263,12 @@ export default function GmailPage() {
             className="focus:bg-zinc-750 w-full rounded-lg border border-zinc-700 bg-zinc-800 py-1.5 pr-3 pl-9 text-sm text-zinc-100 placeholder-zinc-500 transition-colors outline-none focus:border-zinc-500"
           />
         </div>
+        <button
+          onClick={() => setComposeOpen(true)}
+          className="rounded-lg bg-indigo-600/20 px-3 py-1.5 text-xs font-medium text-indigo-300 transition-colors hover:bg-indigo-600/30"
+        >
+          Compose
+        </button>
         <button
           onClick={refresh}
           disabled={loading}
@@ -413,6 +441,10 @@ export default function GmailPage() {
           )}
         </div>
       </div>
+
+      {composeOpen && (
+        <ComposeModal onSend={handleSend} onClose={() => setComposeOpen(false)} sending={sending} />
+      )}
 
       <CommandBar ref={commandRef} onExecute={handleCommand} suggestion={suggestion} onClearSuggestion={() => setSuggestion(undefined)} />
 
