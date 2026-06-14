@@ -12,6 +12,9 @@ export const auth = betterAuth({
   }),
   trustedOrigins: ["http://localhost:3000"],
 
+  account: {
+    storeStateStrategy: "cookie",
+  },
   emailAndPassword: {
     enabled: true,
   },

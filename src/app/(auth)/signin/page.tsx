@@ -28,7 +28,7 @@ export default function SignInPage() {
   const handleGoogleAuth = async () => {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/dashboard",
+      callbackURL: `${window.location.origin}/dashboard`,
     });
   };
   return (
