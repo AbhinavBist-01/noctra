@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/server/lib/api-client";
 import { CommandBar } from "@/components/command-bar";
 import { PreviewModal } from "@/components/preview-modal";
 import type { CommandPreviewAction } from "@/shared/command";
@@ -42,7 +42,10 @@ function formatWeekLabel(start: Date) {
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function isSameDay(date: Date, iso: string) {
@@ -52,7 +55,11 @@ function isSameDay(date: Date, iso: string) {
 
 function formatEventDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  return d.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export default function CalendarPage() {
@@ -73,7 +80,10 @@ export default function CalendarPage() {
       const res = await apiFetch(
         `/api/calendar/events?weekStart=${start.toISOString()}&weekEnd=${weekEnd.toISOString()}`,
       );
-      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      if (!res.ok) {
+        setError(`Server error: ${res.status}`);
+        return;
+      }
       const json = await res.json();
       setEvents(json.data?.events ?? json.data ?? []);
     } catch {
@@ -83,7 +93,9 @@ export default function CalendarPage() {
     }
   }, []);
 
-  useEffect(() => { fetchEvents(weekStart); }, [weekStart, fetchEvents]);
+  useEffect(() => {
+    fetchEvents(weekStart);
+  }, [weekStart, fetchEvents]);
 
   const handleCommand = useCallback(async (command: string) => {
     setError(null);
@@ -93,7 +105,10 @@ export default function CalendarPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),
       });
-      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      if (!res.ok) {
+        setError(`Server error: ${res.status}`);
+        return;
+      }
       const json = await res.json();
       const actions: CommandPreviewAction[] = json.data?.actions ?? [];
       if (actions.length > 0) {
@@ -116,7 +131,10 @@ export default function CalendarPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actions: preview }),
       });
-      if (!res.ok) { setError(`Execution failed: ${res.status}`); return; }
+      if (!res.ok) {
+        setError(`Execution failed: ${res.status}`);
+        return;
+      }
       setPreview(null);
       fetchEvents(weekStart);
     } catch {
@@ -188,9 +206,13 @@ export default function CalendarPage() {
             const isToday = day.toDateString() === new Date().toDateString();
             return (
               <div key={i} className="flex flex-1 flex-col">
-                <div className={`border-b border-zinc-800 px-2 py-2 text-center ${isToday ? "bg-indigo-900/20" : ""}`}>
+                <div
+                  className={`border-b border-zinc-800 px-2 py-2 text-center ${isToday ? "bg-indigo-900/20" : ""}`}
+                >
                   <div className="text-xs text-zinc-500">{DAYS[i]}</div>
-                  <div className={`text-lg font-semibold ${isToday ? "text-indigo-400" : "text-zinc-300"}`}>
+                  <div
+                    className={`text-lg font-semibold ${isToday ? "text-indigo-400" : "text-zinc-300"}`}
+                  >
                     {day.getDate()}
                   </div>
                 </div>
@@ -209,7 +231,9 @@ export default function CalendarPage() {
                           <div className="font-medium text-indigo-300">
                             {formatTime(evt.start)}
                           </div>
-                          <div className="mt-0.5 text-zinc-200">{evt.title}</div>
+                          <div className="mt-0.5 text-zinc-200">
+                            {evt.title}
+                          </div>
                           {evt.attendees && evt.attendees.length > 0 && (
                             <div className="mt-0.5 truncate text-zinc-500">
                               {evt.attendees.map((a) => a.email).join(", ")}
