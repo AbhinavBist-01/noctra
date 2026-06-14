@@ -7,6 +7,7 @@ import {
   refreshGmailMessages,
   sendGmailMessage,
   getGmailDrafts,
+  trashGmailMessage,
 } from "./service";
 import {
   CreateGmailDraftRequestSchema,
@@ -57,6 +58,13 @@ gmailRoute.post("/send", async (req, res) => {
 
 gmailRoute.get("/drafts", async (_req, res) => {
   const result = await getGmailDrafts();
+  res.status(200).json({ data: result });
+});
+
+gmailRoute.post("/messages/:messageId/trash", async (req, res) => {
+  const { messageId } = req.params;
+  if (!messageId) { res.status(400).json({ error: "messageId required" }); return; }
+  const result = await trashGmailMessage(messageId);
   res.status(200).json({ data: result });
 });
 

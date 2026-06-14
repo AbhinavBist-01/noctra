@@ -10,6 +10,13 @@ import type {
   GmailMessageListParams,
 } from "../lib/corsair-types";
 
+const sortByInternalDateDesc = (msgs: any[]) =>
+  [...msgs].sort((a, b) => {
+    const dateA = a.internalDate ? Number(a.internalDate) : 0;
+    const dateB = b.internalDate ? Number(b.internalDate) : 0;
+    return dateB - dateA;
+  });
+
 export const getGmailMessages = async (input: {
   query?: string;
   limit?: number;
@@ -28,23 +35,29 @@ export const getGmailMessages = async (input: {
       };
       const raw = await tenant.gmail.db.messages.search(params as any);
       const allMessages = Array.isArray(raw) ? raw : [];
-      const hasMore = allMessages.length > limit;
-      const messages = hasMore ? allMessages.slice(0, limit) : allMessages;
+      const sorted = sortByInternalDateDesc(
+        allMessages.map((m: any) => m.data ?? m),
+      );
+      const hasMore = sorted.length > limit;
+      const messages = hasMore ? sorted.slice(0, limit) : sorted;
       return {
-        messages: messages.map((m: any) => mapGmailMessageSummary(m.data ?? m)),
+        messages: messages.map((m: any) => mapGmailMessageSummary(m)),
         nextCursor: hasMore ? String(offset + limit) : undefined,
       };
     }
 
-    const params: GmailDbListParams = { limit: limit + 1, offset };
+    const params: GmailDbListParams = { limit: 200, offset: 0 };
     const raw = await tenant.gmail.db.messages.list(params as any);
     const allMessages = Array.isArray(raw) ? raw : [];
-
-    const hasMore = allMessages.length > limit;
-    const messages = hasMore ? allMessages.slice(0, limit) : allMessages;
+    const sorted = sortByInternalDateDesc(
+      allMessages.map((m: any) => m.data ?? m),
+    );
+    const paged = sorted.slice(offset, offset + limit + 1);
+    const hasMore = paged.length > limit;
+    const messages = hasMore ? paged.slice(0, limit) : paged;
 
     return {
-      messages: messages.map((m: any) => mapGmailMessageSummary(m.data ?? m)),
+      messages: messages.map((m: any) => mapGmailMessageSummary(m)),
       nextCursor: hasMore ? String(offset + limit) : undefined,
     };
   } catch (error) {
@@ -83,9 +96,9 @@ export const createGmailDraft = async (input: {
         message: {
           raw: Buffer.from(
             `To: ${input.to.join(", ")}\r\n` +
-            `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
-            `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
-            `Subject: ${input.subject}\r\n\r\n${input.body}`,
+              `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
+              `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
+              `Subject: ${input.subject}\r\n\r\n${input.body}`,
           ).toString("base64url"),
         },
       },
@@ -126,9 +139,9 @@ export const sendGmailMessage = async (input: {
     const params: GmailMessageSendParams = {
       raw: Buffer.from(
         `To: ${input.to.join(", ")}\r\n` +
-        `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
-        `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
-        `Subject: ${input.subject}\r\n\r\n${input.body}`,
+          `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
+          `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
+          `Subject: ${input.subject}\r\n\r\n${input.body}`,
       ).toString("base64url"),
     };
     const sentMessage = await tenant.gmail.api.messages.send(params as any);
@@ -146,7 +159,9 @@ export const getGmailDrafts = async () => {
     const tenant = getTenant();
     const raw = await tenant.gmail.db.drafts.list({} as any);
     const drafts = Array.isArray(raw) ? raw : [];
-    return { drafts: drafts.map((d: any) => mapGmailMessageSummary(d.message ?? d)) };
+    return {
+      drafts: drafts.map((d: any) => mapGmailMessageSummary(d.message ?? d)),
+    };
   } catch (error) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -158,7 +173,10 @@ export const getGmailDrafts = async () => {
 export const refreshGmailMessages = async () => {
   try {
     const tenant = getTenant();
-    const listParams: GmailMessageListParams = { maxResults: 50 };
+    const listParams: GmailMessageListParams = {
+      maxResults: 50,
+      labelIds: ["INBOX"],
+    };
     const listRes = await tenant.gmail.api.messages.list(listParams as any);
     const items = (listRes as any)?.messages ?? [];
     for (const item of items) {
@@ -170,6 +188,19 @@ export const refreshGmailMessages = async () => {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to refresh: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+};
+
+export const trashGmailMessage = async (messageId: string) => {
+  try {
+    const tenant = getTenant();
+    await tenant.gmail.api.messages.trash({ id: messageId } as any);
+    return { success: true };
+  } catch (error) {
+    throw new AppError(
+      "CORSAIR_ERROR",
+      `Failed to trash message: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 };

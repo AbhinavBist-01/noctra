@@ -10,7 +10,7 @@ let actionCounter = 0;
 const nextId = () => `action_${++actionCounter}`;
 
 const emailPatterns = [
-  /(?:send|draft|create)\s+(?:an\s+)?email\s+to\s+(.+?)(?:\s+with\s+subject\s+(.+?))?(?:\s+and\s+(?:body|saying)\s+(.+))?$/i,
+  /(?:send|draft|create)\s+(?:an\s+)?email\s+to\s+(.+?)(?:\s+with\s+subject\s+(.+?))?(?:\s+(?:and\s+)?(?:body|saying)\s+(.+))?$/i,
   /(?:send|draft|create)\s+(?:an\s+)?email\s+to\s+(.+?)(?:\s+saying\s+(.+))?$/i,
   /email\s+(.+?)(?:\s+subject\s+(.+?))?(?:\s+body\s+(.+))?$/i,
 ];
@@ -22,7 +22,7 @@ const calendarPatterns = [
   /invite\s+(.+?)(?:\s+to\s+(.+?))?(?:\s+at\s+(.+))?$/i,
 ];
 
-const referentialPattern = /^(?:also\s+)?(?:send|draft|create)\s+(?:him|her|them)\s+(?:an?\s+)?(email|invite)\s+(?:too\s+)?(?:(?:saying|with\s+body)\s+(.+))?$/i;
+const referentialPattern = /^(?:also\s+)?(?:send|draft|create)\s+(?:him|her|them)\s+(?:an?\s+)?(email|invite)(?:\s+too(?:\s+(?:saying|with\s+body)\s+(.+))?)?(?:\s+(?:saying|with\s+body)\s+(.+))?$/i;
 
 const extractEmails = (raw: string): string[] => {
   const emails = raw.match(/[\w.-]+@[\w.-]+\.\w+/g);
@@ -99,11 +99,18 @@ const splitCommand = (command: string): string[] => {
   let current = "";
   let depth = 0;
 
-  for (const char of command) {
+  const isEmailContext = (pos: number): boolean => {
+    const before = command.slice(Math.max(0, pos - 30), pos);
+    const after = command.slice(pos + 1, pos + 30);
+    return /@\s*\w*$/.test(before) && /^\w+(\.\w+)*/.test(after);
+  };
+
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i];
     if (char === "(") depth++;
     else if (char === ")") depth--;
 
-    if (char === "." && depth === 0) {
+    if (char === "." && depth === 0 && !isEmailContext(i)) {
       if (current.trim()) parts.push(current.trim());
       current = "";
     } else {
@@ -201,7 +208,7 @@ const parseReferentialAction = (
   if (!match) return null;
 
   const actionType = match[1]?.toLowerCase();
-  const body = match[2]?.trim();
+  const body = (match[2] ?? match[3])?.trim();
 
   if (!actionType) return null;
 

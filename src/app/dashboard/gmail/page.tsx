@@ -49,7 +49,13 @@ const formatTime = (iso?: string) => {
 const priorityOrder = { high: 0, normal: 1, low: 2 };
 
 const sortByPriority = (msgs: GmailMessage[]) =>
-  [...msgs].sort((a, b) => (priorityOrder[a.priority ?? "normal"] ?? 1) - (priorityOrder[b.priority ?? "normal"] ?? 1));
+  [...msgs].sort((a, b) => {
+    const pDiff = (priorityOrder[a.priority ?? "normal"] ?? 1) - (priorityOrder[b.priority ?? "normal"] ?? 1);
+    if (pDiff !== 0) return pDiff;
+    const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+    const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+    return db - da;
+  });
 
 const getInitials = (name?: string) => {
   if (!name) return "?";
@@ -160,6 +166,15 @@ export default function GmailPage() {
     } catch { setError(`Could not connect to API at ${API}`); }
   }, []);
 
+  const handleTrash = useCallback(async (messageId: string) => {
+    try {
+      const res = await apiFetch(`/api/gmail/messages/${messageId}/trash`, { method: "POST" });
+      if (!res.ok) { setError(`Trash failed: ${res.status}`); return; }
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      if (selectedId === messageId) setSelectedId(null);
+    } catch { setError("Could not connect to API"); }
+  }, [selectedId]);
+
   const handleSend = useCallback(async (msg: { to: string; subject: string; body: string }) => {
     setSending(true);
     try {
@@ -236,17 +251,14 @@ export default function GmailPage() {
         case "e": {
           e.preventDefault();
           const msg = keyboardList[focusedIndex];
-          if (msg) {
-            setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-            if (selectedId === msg.id) setSelectedId(null);
-          }
+          if (msg) handleTrash(msg.id);
           break;
         }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [focusedIndex, keyboardList, selectedId]);
+  }, [focusedIndex, keyboardList, selectedId, handleTrash]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
