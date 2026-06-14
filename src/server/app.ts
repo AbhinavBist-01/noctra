@@ -5,6 +5,7 @@ import { gmailRoute } from "./gmail/route";
 import { calendarRoute } from "./calendar/route";
 import { commandRoute } from "./command/route";
 import { webhookRoute } from "./webhooks/route";
+import { syncRoute } from "./sync/route";
 import { authRoute } from "./better-auth/route";
 import { requestLogger } from "./middleware/request-logger";
 import { errorHandler } from "./middleware/error-handler";
@@ -27,6 +28,7 @@ app.use("/api/health", healthRoute);
 app.use("/api/gmail", requireAuth, gmailRoute);
 app.use("/api/calendar", requireAuth, calendarRoute);
 app.use("/api/command", requireAuth, commandRoute);
+app.use("/api/sync", requireAuth, syncRoute);
 app.use("/api/webhooks", webhookRoute);
 
 app.use(errorHandler);

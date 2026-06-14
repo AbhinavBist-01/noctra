@@ -38,8 +38,13 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<GmailMessage[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
+    apiFetch("/api/sync/setup", { method: "POST" })
+      .then((r) => { if (!r.ok) console.warn("Sync setup failed"); })
+      .catch(() => {});
+
     Promise.all([
       apiFetch("/api/gmail/messages?limit=6").then((r) => r.ok ? r.json() : { data: [] }),
       apiFetch("/api/calendar/events").then((r) => r.ok ? r.json() : { data: [] }),
