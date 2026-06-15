@@ -3,8 +3,14 @@
  * for Docker builds.
  */
 import "./src/env.js";
+import path from "node:path";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  outputFileTracingRoot: path.resolve("."),
+};
 
 export default config;

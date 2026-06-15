@@ -1,18 +1,29 @@
 import "dotenv/config";
-import { conn } from "../db";
+import { corsair } from "../corsair";
 
 async function main() {
-  const timeout = setTimeout(() => { console.error("TIMEOUT"); process.exit(1); }, 10000);
+  const tenant = corsair.withTenant("dev");
+
+  // Check tenant keys vs context keys
+  const gmail = tenant.gmail as any;
+  console.log("tenant.gmail.keys type:", typeof gmail.keys);
+  console.log("tenant.gmail.keys.get_access_token:", typeof gmail.keys?.get_access_token);
   
-  const accounts = await conn`SELECT id, integration_id, config, dek FROM corsair_accounts`;
-  console.log("Accounts:", accounts.length);
-  for (const a of accounts) {
-    const int = await conn`SELECT name FROM corsair_integrations WHERE id = ${a.integration_id}`;
-    const name = int[0]?.name || "unknown";
-    console.log(`  ${name}: has_dek=${a.dek ? "yes" : "no"}, config=${JSON.stringify(a.config).slice(0, 100)}`);
+  // Try getting the token
+  const tok = await gmail.keys.get_access_token();
+  console.log("access_token present:", !!tok);
+  console.log("access_token[:30]:", tok?.slice(0, 30));
+
+  // Now try the API method and catch where the error comes from
+  try {
+    const res = await gmail.api.messages.list({ maxResults: 1 } as any);
+    console.log("API succeeded");
+  } catch (err: any) {
+    console.log("API error message:", err.message);
+    console.log("API error constructor:", err.constructor.name);
+    console.log("API error stack:", err.stack?.split("\n").slice(0, 3).join("\n"));
   }
-  
-  clearTimeout(timeout);
+
   process.exit(0);
 }
 
