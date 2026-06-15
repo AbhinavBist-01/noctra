@@ -31,6 +31,12 @@ export const auth = betterAuth({
         "https://www.googleapis.com/auth/gmail.modify", // for mark read/archive
         "https://www.googleapis.com/auth/calendar.readonly",
       ],
+      authorization: {
+        params: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     },
   },
 });
