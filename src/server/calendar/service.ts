@@ -24,13 +24,12 @@ export const getCalendarEvents = async (input: {
         weekStart: input.weekStart,
         weekEnd: input.weekEnd,
       };
-      const events = await tenant.googlecalendar.api.events.getMany(
+      const raw = await tenant.googlecalendar.api.events.getMany(
         params as any,
       );
+      const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
       return {
-        events: Array.isArray(events)
-          ? events.map((e: any) => mapCalendarEventSummary(e.data ?? e))
-          : events,
+        events: list.map((e: any) => mapCalendarEventSummary(e.data ?? e)),
       };
     }
 
@@ -38,13 +37,12 @@ export const getCalendarEvents = async (input: {
       weekStart: input.weekStart,
       weekEnd: input.weekEnd,
     };
-    const events = await tenant.googlecalendar.api.events.getMany(
+    const raw = await tenant.googlecalendar.api.events.getMany(
       params as any,
     );
+    const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
     return {
-      events: Array.isArray(events)
-        ? events.map((e: any) => mapCalendarEventSummary(e.data ?? e))
-        : events,
+      events: list.map((e: any) => mapCalendarEventSummary(e.data ?? e)),
     };
   } catch (error) {
     throw new AppError(

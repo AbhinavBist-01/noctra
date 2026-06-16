@@ -1,8 +1,45 @@
-import ngrok from "ngrok";
-import { getTenant } from "../corsair/tenant";
+import { spawn, execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { getTenant } from "../corsair/tenant";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 let tunnelUrl: string | null = null;
+let ngrokProcess: ReturnType<typeof spawn> | null = null;
+
+// Possible locations for the ngrok binary
+function findNgrokBinary(): string {
+  const candidates = [
+    // Local project install (pnpm)
+    join(__dirname, "..", "..", "..", "node_modules", ".pnpm", "ngrok@5.0.0-beta.2", "node_modules", "ngrok", "bin", "ngrok.exe"),
+    // Local project install (npm)
+    join(__dirname, "..", "..", "..", "node_modules", "ngrok", "bin", "ngrok.exe"),
+    // Global npm install
+    join(process.env.APPDATA || "", "npm", "node_modules", "ngrok", "bin", "ngrok.exe"),
+  ];
+
+  for (const p of candidates) {
+    try {
+      execSync(`"${p}" version`, { stdio: "pipe", timeout: 3000 });
+      return p;
+    } catch {
+      continue;
+    }
+  }
+
+  return "ngrok";
+}
+
+function killNgrokProcess(): void {
+  try {
+    execSync("taskkill /f /im ngrok.exe 2>nul", { stdio: "ignore" });
+  } catch {
+    // no stale process
+  }
+}
 
 export async function startNgrok(port: number = 4000): Promise<string> {
   if (tunnelUrl) {
@@ -10,29 +47,137 @@ export async function startNgrok(port: number = 4000): Promise<string> {
     return tunnelUrl;
   }
 
-  try {
-    tunnelUrl = await ngrok.connect({
-      addr: port,
-      proto: "http",
-      onStatusChange: (status) => {
-        console.log(`[ngrok] Status: ${status}`);
-        if (status === "closed") tunnelUrl = null;
-      },
-      onLogEvent: (msg) => console.log(`[ngrok] ${msg}`),
+  killNgrokProcess();
+
+  const binary = findNgrokBinary();
+  console.log(`[ngrok] Using binary: ${binary}`);
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(binary, ["start", "--none", "--log=stdout"], {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
     });
-    console.log(`[ngrok] Tunnel opened: ${tunnelUrl}`);
-    return tunnelUrl;
-  } catch (err) {
-    console.error("[ngrok] Failed to start:", (err as Error).message);
-    throw err;
+
+    let startupLog = "";
+    let detectedApiPort: number | null = null;
+    let sessionEstablished = false;
+    let resolved = false;
+
+    function onData(data: Buffer) {
+      const msg = data.toString();
+      startupLog += msg;
+
+      // Detect API port from log
+      const addrMatch = msg.match(/starting web service.*addr=(\d+\.\d+\.\d+\.\d+):(\d+)/);
+      if (addrMatch) {
+        detectedApiPort = parseInt(addrMatch[2]!, 10);
+        console.log(`[ngrok] API on port ${detectedApiPort}`);
+      }
+
+      // Detect session established
+      if (msg.includes("client session established") && !sessionEstablished) {
+        sessionEstablished = true;
+        console.log("[ngrok] Session established");
+        if (detectedApiPort) {
+          createTunnelWithRetry(detectedApiPort, port).then(resolve).catch(reject);
+          resolved = true;
+        }
+      }
+    }
+
+    proc.stdout!.on("data", onData);
+    proc.stderr!.on("data", onData);
+
+    proc.on("error", (err) => {
+      if (!resolved) reject(err);
+    });
+
+    proc.on("exit", (code) => {
+      ngrokProcess = null;
+      if (!resolved && code !== 0) {
+        reject(new Error(`ngrok exited with code ${code}: ${startupLog.slice(-200)}`));
+      }
+    });
+
+    ngrokProcess = proc;
+
+    // Poll for "client session established" in stdout
+    const pollInterval = setInterval(() => {
+      if (resolved || sessionEstablished) {
+        clearInterval(pollInterval);
+        return;
+      }
+      // Also try to detect session from stdout content
+      if (startupLog.includes("client session established")) {
+        sessionEstablished = true;
+        clearInterval(pollInterval);
+        if (detectedApiPort) {
+          createTunnelWithRetry(detectedApiPort, port).then(resolve).catch(reject);
+          resolved = true;
+        }
+      }
+    }, 200);
+
+    // Timeout
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (!resolved) {
+        reject(new Error(`ngrok startup timed out: ${startupLog.slice(-300)}`));
+      }
+    }, 25000);
+  });
+}
+
+async function createTunnelWithRetry(
+  apiPort: number,
+  targetPort: number,
+  maxRetries = 20,
+): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const tunnelName = randomUUID();
+    try {
+      const res = await fetch(`http://127.0.0.1:${apiPort}/api/tunnels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: tunnelName,
+          addr: `http://localhost:${targetPort}`,
+          proto: "http",
+        }),
+      });
+
+      if (res.ok) {
+        const tunnel = await res.json();
+        tunnelUrl = tunnel.public_url;
+        console.log(`[ngrok] Tunnel opened: ${tunnelUrl}`);
+        return tunnelUrl;
+      }
+
+      const text = await res.text();
+      // If session isn't ready yet, retry after delay
+      if (text.includes("not yet ready")) {
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+      throw new Error(`ngrok tunnel create failed: ${text}`);
+    } catch (err: any) {
+      if (err.message?.includes("not yet ready") && i < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+      throw err;
+    }
   }
+  throw new Error("ngrok tunnel creation timed out");
 }
 
 export async function stopNgrok(): Promise<void> {
-  if (!tunnelUrl) return;
-  await ngrok.disconnect(tunnelUrl);
-  await ngrok.kill();
   tunnelUrl = null;
+  if (ngrokProcess) {
+    ngrokProcess.kill();
+    ngrokProcess = null;
+  }
+  killNgrokProcess();
   console.log("[ngrok] Tunnel closed");
 }
 
@@ -50,10 +195,7 @@ export async function setupGmailWatch(topicName: string): Promise<void> {
 
   const result = await tenant.gmail.api.users.watch({
     userId: "me",
-    requestBody: {
-      topicName,
-      labelIds: ["INBOX"],
-    },
+    requestBody: { topicName, labelIds: ["INBOX"] },
   } as any);
 
   console.log(`[gmail-watch] Watch registered (expiration: ${result.expiration})`);
@@ -88,10 +230,6 @@ export async function setupCalendarWatch(): Promise<void> {
 }
 
 export async function stopCalendarWatch(): Promise<void> {
-  const tenant = getTenant();
-
-  // We'd need to track channel IDs to stop them properly
-  // For now, just log — Calendar channels auto-expire after ~7 days
   console.log("[calendar-watch] Calendar watch will expire automatically");
 }
 
@@ -107,7 +245,6 @@ export async function setupWatches(): Promise<WatchResult> {
 
   const result: WatchResult = { gmail: false, calendar: false };
 
-  // Gmail — requires Pub/Sub topic
   const topicName = process.env.GMAIL_PUBSUB_TOPIC;
   if (topicName) {
     try {
@@ -120,7 +257,6 @@ export async function setupWatches(): Promise<WatchResult> {
     console.log("[webhooks] Set GMAIL_PUBSUB_TOPIC to enable Gmail Watch");
   }
 
-  // Calendar — direct webhook push (no Pub/Sub needed)
   try {
     await setupCalendarWatch();
     result.calendar = true;

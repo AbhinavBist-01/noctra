@@ -1,15 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processWebhook, verifyWebhook } from "@/server/webhooks/service";
+import { processWebhook } from "corsair";
+import { corsair } from "@/server/corsair";
+
+function decodePubSubBody(
+  body: Record<string, unknown> | string,
+): Record<string, unknown> | string {
+  if (typeof body !== "object" || !body) return body;
+  const msg = body as Record<string, any>;
+  if (!msg.message || !msg.subscription) return body;
+  const encoded = msg.message.data;
+  if (typeof encoded !== "string") return body;
+  try {
+    const decoded = Buffer.from(encoded, "base64").toString("utf-8");
+    console.log(`[WEBHOOK] Decoded Pub/Sub payload`);
+    return JSON.parse(decoded);
+  } catch {
+    return body;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const pathname = url.pathname;
-
-    // Extract webhook type from path (e.g., /api/webhook/gmail -> gmail)
     const webhookType = pathname.split("/").pop();
 
-    // Only allow gmail and calendar webhooks
     if (!["gmail", "calendar"].includes(webhookType || "")) {
       return NextResponse.json(
         { error: "Invalid webhook type" },
@@ -21,13 +36,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const query = Object.fromEntries(url.searchParams);
 
+    const decodedBody = decodePubSubBody(body);
+
+    const queryWithTenant = {
+      ...query,
+      tenantId: query.tenantId ?? process.env.CORSAIR_TENANT_ID ?? "dev",
+    };
+
     const result = await processWebhook(
+      corsair,
       headers as Record<string, string | string[] | undefined>,
-      body,
-      query as Record<string, string | string[] | undefined>,
+      decodedBody,
+      queryWithTenant,
     );
 
-    return NextResponse.json({ data: result }, { status: 200 });
+    return NextResponse.json(
+      { data: result },
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error("[WEBHOOK] Error:", error);
     return NextResponse.json(
@@ -43,14 +69,10 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
+    const query = Object.fromEntries(url.searchParams);
 
-    // Check if this is a verification request
-    const isVerifyPath = url.pathname.endsWith("/verify");
-
-    if (isVerifyPath) {
-      const query = Object.fromEntries(url.searchParams);
-      const result = await verifyWebhook(query);
-      return NextResponse.json({ data: result }, { status: 200 });
+    if (url.pathname.endsWith("/verify")) {
+      return NextResponse.json({ data: { verified: true } }, { status: 200 });
     }
 
     return NextResponse.json(

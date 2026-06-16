@@ -33,8 +33,8 @@ export const auth = betterAuth({
       ],
       authorization: {
         params: {
-          access_type: "offline",
-          prompt: "consent",
+          accessType: "offline",
+          prompt: "select_account consent",
         },
       },
     },
