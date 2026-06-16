@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { auth } from "../better-auth/auth";
 import { fromNodeHeaders } from "better-auth/node";
-import type { ApiErrorResponse } from "@/shared/api";
 import { AppError } from "../lib/app-error";
 
 declare global {

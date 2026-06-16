@@ -10,7 +10,6 @@ import {
   createCalendarInvite,
   draftCalendarEvent,
   getCalendarEvents,
-  refreshCalendarEvents,
 } from "./service";
 
 export const calendarRoute = Router();
