@@ -4,13 +4,21 @@ import type {
   CommandExecuteRequest,
   CommandExecuteResponse,
 } from "@/shared/command";
-import { parseCommand } from "./parser";
+import { parseCommandWithAgent, parseCommand } from "./parser";
 import { executeActions } from "./executor";
 
-export const previewCommand = (
+export const previewCommand = async (
   input: CommandPreviewRequest,
-): CommandPreviewResponse => {
-  return parseCommand(input.command);
+): Promise<CommandPreviewResponse> => {
+  // Try LLM parser first, fall back to regex if agent fails
+  const useAgent = process.env.OPENROUTER_API_KEY !== undefined;
+  
+  if (useAgent) {
+    return await parseCommandWithAgent(input.command);
+  } else {
+    // Fallback to regex parser if no OPENROUTER_API_KEY
+    return parseCommand(input.command);
+  }
 };
 
 export const executeCommand = async (

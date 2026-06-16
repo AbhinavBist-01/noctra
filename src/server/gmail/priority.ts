@@ -1,10 +1,7 @@
 import type { GmailMessageSummary } from "@/shared/gmail";
 
 export const classifyGmailPriority = (
-  message: Pick<
-    GmailMessageSummary,
-    "from" | "subject" | "snippet" | "labels"
-  >,
+  message: Pick<GmailMessageSummary, "from" | "subject" | "snippet" | "labels">,
 ): "low" | "normal" | "high" => {
   const text = [
     message.from,
@@ -22,7 +19,15 @@ export const classifyGmailPriority = (
     text.includes("action required") ||
     text.includes("deadline") ||
     text.includes("invoice due") ||
-    text.includes("security alert")
+    text.includes("security alert") ||
+    text.includes("hiring") ||
+    text.includes("job listing") ||
+    text.includes("job application") ||
+    text.includes("ai news") ||
+    text.includes("artificial intelligence") ||
+    text.includes("employment opportunity") ||
+    text.includes("career opportunity") ||
+    text.includes("openposition")
   ) {
     return "high";
   }

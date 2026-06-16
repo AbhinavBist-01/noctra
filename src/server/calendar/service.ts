@@ -24,7 +24,9 @@ export const getCalendarEvents = async (input: {
         weekStart: input.weekStart,
         weekEnd: input.weekEnd,
       };
-      const events = await tenant.googlecalendar.db.events.search(params as any);
+      const events = await tenant.googlecalendar.api.events.getMany(
+        params as any,
+      );
       return {
         events: Array.isArray(events)
           ? events.map((e: any) => mapCalendarEventSummary(e.data ?? e))
@@ -36,7 +38,9 @@ export const getCalendarEvents = async (input: {
       weekStart: input.weekStart,
       weekEnd: input.weekEnd,
     };
-    const events = await tenant.googlecalendar.db.events.list(params as any);
+    const events = await tenant.googlecalendar.api.events.getMany(
+      params as any,
+    );
     return {
       events: Array.isArray(events)
         ? events.map((e: any) => mapCalendarEventSummary(e.data ?? e))
@@ -46,19 +50,6 @@ export const getCalendarEvents = async (input: {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to list events: ${error instanceof Error ? error.message : "Unknown error"}`,
-    );
-  }
-};
-
-export const refreshCalendarEvents = async () => {
-  try {
-    const tenant = getTenant();
-    const params: CalendarEventGetManyParams = {};
-    await tenant.googlecalendar.api.events.getMany(params as any);
-  } catch (error) {
-    throw new AppError(
-      "CORSAIR_ERROR",
-      `Failed to refresh events: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 };

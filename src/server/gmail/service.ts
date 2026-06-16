@@ -33,7 +33,7 @@ export const getGmailMessages = async (input: {
         limit: limit + 1,
         offset,
       };
-      const raw = await tenant.gmail.db.messages.search(params as any);
+      const raw = await tenant.gmail.api.messages.get(params as any);
       const allMessages = Array.isArray(raw) ? raw : [];
       const sorted = sortByInternalDateDesc(
         allMessages.map((m: any) => m.data ?? m),
@@ -47,7 +47,7 @@ export const getGmailMessages = async (input: {
     }
 
     const params: GmailDbListParams = { limit: 200, offset: 0 };
-    const raw = await tenant.gmail.db.messages.list(params as any);
+    const raw = await tenant.gmail.api.messages.list(params as any);
     const allMessages = Array.isArray(raw) ? raw : [];
     const sorted = sortByInternalDateDesc(
       allMessages.map((m: any) => m.data ?? m),
@@ -187,7 +187,9 @@ export const refreshGmailMessages = async () => {
   } catch (error) {
     if (
       error instanceof Error &&
-      (error.message.includes("DEK") || error.message.includes("Forbidden") || error.message.includes("Integration"))
+      (error.message.includes("DEK") ||
+        error.message.includes("Forbidden") ||
+        error.message.includes("Integration"))
     ) {
       console.log("[gmail] Refresh skipped:", error.message);
       return;

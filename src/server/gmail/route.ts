@@ -63,16 +63,25 @@ gmailRoute.get("/drafts", async (_req, res) => {
 
 gmailRoute.post("/messages/:messageId/trash", async (req, res) => {
   const { messageId } = req.params;
-  if (!messageId) { res.status(400).json({ error: "messageId required" }); return; }
+  if (!messageId) {
+    res.status(400).json({ error: "messageId required" });
+    return;
+  }
   const result = await trashGmailMessage(messageId);
   res.status(200).json({ data: result });
 });
 
 gmailRoute.post("/summarize", async (req, res) => {
   const { messageId } = req.body as { messageId: string };
-  if (!messageId) { res.status(400).json({ error: "messageId required" }); return; }
+  if (!messageId) {
+    res.status(400).json({ error: "messageId required" });
+    return;
+  }
   const message = await getGmailMessageById(messageId);
-  if (!message) { res.status(404).json({ error: "Message not found" }); return; }
+  if (!message) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
   const summary = await summarizeEmail(message);
   res.status(200).json({ data: { summary } });
 });

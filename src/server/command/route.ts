@@ -5,10 +5,10 @@ import type { CommandExecuteRequest } from "@/shared/command";
 
 export const commandRoute = Router();
 
-commandRoute.post("/preview", (req, res, next) => {
+commandRoute.post("/preview", async (req, res, next) => {
   try {
     const body = PreviewRequestSchema.parse(req.body);
-    const result = previewCommand(body);
+    const result = await previewCommand(body);
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);

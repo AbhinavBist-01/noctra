@@ -5,6 +5,7 @@ import type {
   CommandActionType,
 } from "@/shared/command";
 import type { CalendarAttendee } from "@/shared/calendar";
+import { agentJson } from "../lib/agent";
 
 let actionCounter = 0;
 const nextId = () => `action_${++actionCounter}`;
@@ -242,6 +243,102 @@ const parseReferentialAction = (
   }
 
   return null;
+};
+
+// LLM-based command parser using agent
+export const parseCommandWithAgent = async (
+  command: string,
+): Promise<{ actions: CommandPreviewAction[]; warnings: string[] }> => {
+  actionCounter = 0;
+  
+  try {
+    const response = await agentJson<{
+      actions: Array<{
+        type: "email_draft" | "email_send" | "calendar_invite";
+        to?: string[];
+        subject?: string;
+        body?: string;
+        title?: string;
+        description?: string;
+        start?: string;
+        end?: string;
+        timezone?: string;
+        attendees?: Array<{ email: string; name?: string }>;
+      }>;
+      warnings?: string[];
+    }>([
+      {
+        role: "system",
+        content: `You are a command parser. Parse natural language commands into structured actions.
+Return JSON with this schema:
+{
+  "actions": [
+    {
+      "type": "email_send" | "email_draft" | "calendar_invite",
+      "to": ["email@example.com"],
+      "subject": "subject line",
+      "body": "email body",
+      "title": "event title",
+      "description": "event description",
+      "start": "ISO 8601 datetime",
+      "end": "ISO 8601 datetime",
+      "timezone": "America/New_York",
+      "attendees": [{ "email": "attendee@example.com", "name": "Name" }]
+    }
+  ],
+  "warnings": ["any unparseable parts"]
+}
+Email actions: extract recipient emails, subject, and body.
+Calendar actions: extract title, attendees, start/end times (default: 1 hour from now).
+If unsure about time, default to 1 hour from now.
+For attendees, extract emails only.`,
+      },
+      {
+        role: "user",
+        content: `Parse this command: "${command}"`,
+      },
+    ]);
+
+    // Convert agent response to our format
+    const actions: CommandPreviewAction[] = response.actions.map((a) => {
+      const action: CommandPreviewAction = {
+        id: nextId(),
+        type: a.type,
+      };
+
+      if (a.type === "email_send" || a.type === "email_draft") {
+        return {
+          ...action,
+          to: a.to || [],
+          subject: a.subject || "",
+          body: a.body || "",
+        };
+      }
+
+      if (a.type === "calendar_invite") {
+        return {
+          ...action,
+          title: a.title || "Meeting",
+          description: a.description || "",
+          start: a.start || new Date(Date.now() + 3600000).toISOString(),
+          end: a.end || new Date(Date.now() + 7200000).toISOString(),
+          timezone: a.timezone || "UTC",
+          attendees: a.attendees || [],
+        };
+      }
+
+      return action;
+    });
+
+    return {
+      actions,
+      warnings: response.warnings || [],
+    };
+  } catch (error) {
+    console.error("Agent parsing failed:", error);
+    // Fall back to regex parser
+    return parseCommand(command);
+  }
 };
 
 export const parseCommand = (

@@ -26,14 +26,6 @@ calendarRoute.get("/events", async (req, res) => {
   res.status(200).json({ data: result });
 });
 
-calendarRoute.post("/refresh", async (_req, res) => {
-  await refreshCalendarEvents();
-
-  res.status(200).json({
-    data: { success: true },
-  });
-});
-
 calendarRoute.post("/events/draft", async (req, res) => {
   const body = validate(CreateCalendarInviteRequestSchema, req.body);
   const result = await draftCalendarEvent(body);

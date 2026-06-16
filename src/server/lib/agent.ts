@@ -1,4 +1,4 @@
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+import { OpenAI } from "openai";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant";
@@ -9,37 +9,47 @@ type AgentOptions = {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  tools?: Array<{
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }>;
 };
+
+let openaiClient: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!openaiClient) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+    openaiClient = new OpenAI({ apiKey });
+  }
+  return openaiClient;
+}
 
 export async function agent(
   messages: AgentMessage[],
   opts: AgentOptions = {},
 ): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey)
-    throw new Error("OPENROUTER_API_KEY is not set (use OpenRouter key)");
+  const client = getOpenAIClient();
 
-  const res = await fetch(OPENROUTER_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: opts.model ?? "openai/gpt-4o-mini",
-      messages,
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: opts.maxTokens ?? 500,
       temperature: opts.temperature ?? 0.2,
-    }),
-  });
+      messages: messages.map((m) => ({
+        role: m.role as "system" | "user" | "assistant",
+        content: m.content,
+      })),
+    });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenRouter error ${res.status}: ${body}`);
+    return (response.choices?.[0]?.message?.content ?? "").trim();
+  } catch (error) {
+    throw new Error(
+      `OpenAI Agent error: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  const json = await res.json();
-  return (json.choices?.[0]?.message?.content ?? "").trim();
 }
 
 export async function agentJson<T>(

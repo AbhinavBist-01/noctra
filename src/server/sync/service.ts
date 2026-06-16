@@ -1,8 +1,9 @@
 import { db } from "../db";
-import { account, corsairIntegrations } from "../db/schema";
+import { account, corsairIntegrations, corsairAccounts } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { corsair } from "../corsair";
 import { AppError } from "../lib/app-error";
+import { randomUUID } from "node:crypto";
 
 export type SyncResult = {
   gmail: boolean;
@@ -58,24 +59,51 @@ async function ensureIntegrationAndKeys(
     throw new AppError("VALIDATION_ERROR", "Google access token not found.");
   }
 
+  const tenantId = process.env.CORSAIR_TENANT_ID ?? "dev";
+
   for (const name of PLUGINS) {
     // Ensure integration record exists
-    const existing = await db
+    const integration = await db
       .select()
       .from(corsairIntegrations)
       .where(eq(corsairIntegrations.name, name))
       .limit(1)
       .then((r) => r[0] ?? null);
 
-    if (!existing) {
-      const crypto = await import("node:crypto");
+    let integrationId: string;
+    if (!integration) {
+      integrationId = randomUUID();
       await db.insert(corsairIntegrations).values({
-        id: crypto.randomUUID(),
+        id: integrationId,
         name,
         config: {
           clientId: process.env.BETTER_AUTH_GOOGLE_CLIENT_ID,
           clientSecret: process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET,
         },
+      });
+    } else {
+      integrationId = integration.id;
+    }
+
+    // Ensure corsair account exists
+    const existingAccount = await db
+      .select()
+      .from(corsairAccounts)
+      .where(
+        and(
+          eq(corsairAccounts.tenantId, tenantId),
+          eq(corsairAccounts.integrationId, integrationId),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    if (!existingAccount) {
+      await db.insert(corsairAccounts).values({
+        id: randomUUID(),
+        tenantId,
+        integrationId,
+        config: {},
       });
     }
 
