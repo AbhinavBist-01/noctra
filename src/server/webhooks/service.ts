@@ -82,7 +82,7 @@ async function handleGmailNotification(historyId: string) {
       if (item?.id) {
         try {
           const res = await tenant.gmail.api.messages.get({ id: item.id } as any);
-          const data = res.data ?? res;
+          const data = (res as any).data ?? res;
           if (data) {
             await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
           }

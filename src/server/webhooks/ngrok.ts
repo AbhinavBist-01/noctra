@@ -76,7 +76,7 @@ export async function startNgrok(port: number = 4000): Promise<string> {
         tunnelUrl = fwdMatch[1] ?? null;
         resolved = true;
         console.log(`[ngrok] Tunnel opened: ${tunnelUrl}`);
-        resolve(tunnelUrl);
+        resolve(tunnelUrl!);
       }
     }
 
@@ -109,10 +109,10 @@ export async function startNgrok(port: number = 4000): Promise<string> {
       }
       const fwdMatch = startupLog.match(/Forwarding\s+(https:\/\/[^\s]+)/);
       if (fwdMatch && !resolved) {
-        tunnelUrl = fwdMatch[1];
+        tunnelUrl = fwdMatch[1] ?? null;
         resolved = true;
         clearInterval(pollInterval);
-        resolve(tunnelUrl);
+        resolve(tunnelUrl!);
         return;
       }
     }, 200);
@@ -148,7 +148,7 @@ export async function setupGmailWatch(topicName: string): Promise<void> {
   const tenant = getTenant();
   console.log(`[gmail-watch] Registering Watch with topic: ${topicName}`);
 
-  const result = await tenant.gmail.api.users.watch({
+  const result = await (tenant.gmail.api as any).users.watch({
     userId: "me",
     requestBody: { topicName, labelIds: ["INBOX"] },
   } as any);
@@ -158,7 +158,7 @@ export async function setupGmailWatch(topicName: string): Promise<void> {
 
 export async function stopGmailWatch(): Promise<void> {
   const tenant = getTenant();
-  await tenant.gmail.api.users.stop({ userId: "me" } as any);
+  await (tenant.gmail.api as any).users.stop({ userId: "me" } as any);
   console.log("[gmail-watch] Watch stopped");
 }
 
@@ -172,7 +172,7 @@ export async function setupCalendarWatch(): Promise<void> {
 
   console.log(`[calendar-watch] Registering Watch → ${address}`);
 
-  const result = await tenant.googlecalendar.api.events.watch({
+  const result = await (tenant.googlecalendar.api as any).events.watch({
     calendarId: "primary",
     requestBody: {
       id: randomUUID(),

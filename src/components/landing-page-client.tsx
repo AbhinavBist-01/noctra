@@ -927,7 +927,7 @@ export default function LandingPageClient() {
 
         {/* Bottom bar */}
         <div className="max-w-7xl mx-auto pt-8 border-t border-zinc-900/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-zinc-600">
-          <span>&copy; {new Date().getFullYear()} Noctra. Crafted with bat-wings.</span>
+          <span>&copy; 2026 Noctra. Crafted with bat-wings.</span>
           <div className="flex gap-6">
             <a href="#" className="hover:text-zinc-400 transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-zinc-400 transition-colors">Terms of Service</a>

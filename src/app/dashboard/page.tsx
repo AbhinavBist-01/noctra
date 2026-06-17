@@ -194,7 +194,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="flex flex-1 flex-col gap-8 overflow-y-auto bg-zinc-950 p-6 md:p-8 text-zinc-100">
+    <div className="flex flex-1 flex-col gap-8 overflow-y-auto bg-[#020208] p-6 md:p-8 text-zinc-100 font-sans tracking-wide">
       
       {/* Header Banner */}
       <motion.div 
@@ -204,25 +204,25 @@ export default function DashboardPage() {
         className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
       >
         <div>
-          <span className="text-xs font-semibold tracking-wider text-zinc-500 uppercase">Noctra Workspace</span>
-          <h1 className="bg-gradient-to-r from-zinc-100 via-zinc-300 to-zinc-500 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+          <span className="text-[10px] font-bold tracking-widest text-indigo-400/85 uppercase">Noctra Command Center</span>
+          <h1 className="font-display bg-gradient-to-r from-white via-zinc-200 to-zinc-450 bg-clip-text text-3xl md:text-4xl font-extrabold tracking-tight text-transparent mt-0.5">
             Welcome back, {session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User"}
           </h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1.5 text-xs font-semibold text-zinc-500 tracking-wide">
             {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Status Indicators */}
-          <div className="hidden items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-2 text-xs text-zinc-400 backdrop-blur-md md:flex">
+          <div className="hidden items-center gap-4 rounded-2xl border border-zinc-900 bg-zinc-950/40 px-4 py-2.5 text-xs text-zinc-400 backdrop-blur-md md:flex font-semibold">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.75)] animate-pulse" />
               Gmail
             </span>
-            <span className="h-3 w-px bg-zinc-800" />
+            <span className="h-3 w-px bg-zinc-900" />
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.75)] animate-pulse" />
               Calendar
             </span>
           </div>
@@ -230,15 +230,15 @@ export default function DashboardPage() {
           <button
             onClick={handleSync}
             disabled={syncing || loading}
-            className="flex items-center gap-2 rounded-xl border border-zinc-855 bg-zinc-900/60 hover:bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 transition-all active:scale-95 disabled:opacity-40"
+            className="flex items-center gap-2 rounded-2xl border border-zinc-900 bg-zinc-950/80 hover:bg-zinc-900 px-5 py-2.5 text-xs font-bold text-zinc-300 transition-all active:scale-95 disabled:opacity-40 shadow-sm cursor-pointer"
           >
             <svg 
-              className={`h-4 w-4 text-zinc-400 ${syncing ? "animate-spin" : ""}`} 
+              className={`h-3.5 w-3.5 text-zinc-400 ${syncing ? "animate-spin" : ""}`} 
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
             </svg>
-            <span>{syncing ? "Syncing..." : "Sync Now"}</span>
+            <span>{syncing ? "Syncing..." : "Sync Workspace"}</span>
           </button>
         </div>
       </motion.div>
@@ -248,45 +248,45 @@ export default function DashboardPage() {
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/60 to-zinc-950/80 p-5 backdrop-blur-xl shadow-xl"
+        className="relative overflow-hidden rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-950/70 to-[#06060c]/90 p-6 backdrop-blur-xl shadow-xl shadow-black/10"
       >
-        <div className="absolute top-0 right-0 -z-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-[80px]" />
+        <div className="absolute top-0 right-0 -z-10 h-32 w-32 rounded-full bg-indigo-500/5 blur-[80px]" />
         
-        <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+        <h2 className="font-display flex items-center gap-2 text-sm font-semibold tracking-wide text-zinc-300">
           <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          AI Command Center
+          Noctra Copilot Command
         </h2>
         
-        <form onSubmit={handleAiSubmit} className="mt-3.5 flex gap-2">
+        <form onSubmit={handleAiSubmit} className="mt-4 flex gap-2">
           <input
             type="text"
             value={aiInput}
             onChange={(e) => setAiInput(e.target.value)}
-            placeholder="Tell Noctra what to do... (e.g., 'Invite Bob to lunch tomorrow at 12pm' or 'Draft email to boss about status')"
-            className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-zinc-700 outline-none focus:ring-1 focus:ring-zinc-800"
+            placeholder="Tell Noctra what to do... (e.g., 'Draft email to boss about status' or 'Invite Bob to lunch tomorrow at 12pm')"
+            className="flex-1 rounded-xl border border-zinc-900 bg-[#020206] px-4 py-3 text-xs md:text-sm text-zinc-100 placeholder-zinc-600 transition-colors focus:border-zinc-850 outline-none focus:ring-1 focus:ring-zinc-850"
           />
           <button
             type="submit"
             disabled={!aiInput.trim()}
-            className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-[0_0_20px_rgba(79,70,229,0.3)]"
+            className="rounded-xl bg-indigo-650 hover:bg-indigo-600 px-6 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-md shadow-indigo-600/10 cursor-pointer"
           >
             Ask AI
           </button>
         </form>
 
         {aiError && (
-          <div className="mt-2 text-xs text-red-400">{aiError}</div>
+          <div className="mt-2 text-xs text-red-400 font-medium">{aiError}</div>
         )}
 
-        <div className="mt-3.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-          <span>Try:</span>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-550">
+          <span className="font-bold uppercase tracking-wider text-[10px]">Suggestions:</span>
           {suggestions.map((s, idx) => (
             <button
               key={idx}
               onClick={() => setAiInput(s.text)}
-              className="rounded-lg border border-zinc-850 bg-zinc-900/30 px-2.5 py-1 text-zinc-400 transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 hover:text-zinc-200"
+              className="rounded-lg border border-zinc-900 bg-zinc-950/20 px-3 py-1 text-zinc-400 transition-colors hover:border-zinc-800 hover:bg-zinc-900/50 hover:text-zinc-200 cursor-pointer font-medium"
             >
               {s.display}
             </button>
@@ -302,51 +302,56 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
-          className="lg:col-span-5 rounded-2xl border border-zinc-800 bg-zinc-900/20 backdrop-blur-md p-5 flex flex-col"
+          className="lg:col-span-5 rounded-2xl border border-zinc-900 bg-zinc-950/20 backdrop-blur-md p-6 flex flex-col shadow-sm"
         >
-          <div className="flex items-center justify-between border-b border-zinc-850 pb-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-3.5">
+            <h2 className="font-display flex items-center gap-2.5 text-sm font-semibold text-zinc-200 tracking-wide">
               <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Today's Schedule
             </h2>
-            <Link href="/dashboard/calendar" className="text-xs text-indigo-450 hover:text-indigo-400 font-medium">
+            <Link href="/dashboard/calendar" className="text-xs text-indigo-400 hover:text-indigo-350 font-semibold tracking-wide">
               Open Calendar
             </Link>
           </div>
 
-          <div className="mt-4 flex-1 space-y-4">
+          <div className="mt-5 flex-1 space-y-4">
             {loading ? (
-              <div className="flex h-36 items-center justify-center text-sm text-zinc-600">Loading agenda...</div>
+              <div className="flex h-36 items-center justify-center text-xs text-zinc-650">Loading agenda...</div>
             ) : todayEvents.length === 0 ? (
-              <div className="flex h-36 flex-col items-center justify-center gap-2 text-center text-sm text-zinc-500">
-                <svg className="h-6 w-6 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="flex h-36 flex-col items-center justify-center gap-2.5 text-center text-xs text-zinc-600">
+                <svg className="h-6 w-6 text-zinc-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>No events today. Have a clear day!</span>
+                <span className="font-medium">No events today. Agenda is clear!</span>
               </div>
             ) : (
-              <div className="relative border-l border-zinc-805 pl-4 ml-1 space-y-4">
+              <div className="relative border-l border-zinc-900 pl-4 ml-1 space-y-4">
                 {todayEvents.map((evt) => (
-                  <div key={evt.id} className="relative group">
-                    {/* Circle marker */}
-                    <div className="absolute -left-[21px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-zinc-950 bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)] group-hover:scale-110 transition-transform" />
+                  <motion.div 
+                    key={evt.id} 
+                    className="relative group"
+                    whileHover={{ x: 2 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  >
+                    {/* Circle timeline dot */}
+                    <div className="absolute -left-[21px] top-2 h-3.5 w-3.5 rounded-full border-2 border-zinc-950 bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)] group-hover:scale-110 transition-transform" />
                     
-                    <div className="rounded-xl border border-zinc-850/60 bg-zinc-900/30 hover:bg-zinc-800/30 p-3 transition-colors">
-                      <div className="text-xs font-semibold text-indigo-400">
+                    <div className="rounded-xl border border-zinc-900/60 bg-zinc-950/20 hover:bg-zinc-950/40 p-4 transition-colors">
+                      <div className="text-xs font-semibold text-indigo-400 tracking-wider">
                         {formatTime(evt.start)} – {formatTime(evt.end)}
                       </div>
-                      <div className="mt-0.5 text-sm font-semibold text-zinc-200 group-hover:text-white transition-colors">
+                      <div className="mt-1 text-sm font-semibold text-zinc-200 group-hover:text-white transition-colors leading-snug">
                         {evt.title}
                       </div>
                       {evt.description && (
-                        <div className="mt-1 text-xs text-zinc-400 line-clamp-2">
+                        <div className="mt-1.5 text-xs text-zinc-450 line-clamp-2 leading-relaxed">
                           {evt.description}
                         </div>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -358,60 +363,65 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="lg:col-span-7 rounded-2xl border border-zinc-800 bg-zinc-900/20 backdrop-blur-md p-5 flex flex-col"
+          className="lg:col-span-7 rounded-2xl border border-zinc-900 bg-zinc-950/20 backdrop-blur-md p-6 flex flex-col shadow-sm"
         >
-          <div className="flex items-center justify-between border-b border-zinc-855 pb-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-3.5">
+            <h2 className="font-display flex items-center gap-2.5 text-sm font-semibold text-zinc-200 tracking-wide">
               <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              Important Messages
+              Priority Inbox
             </h2>
-            <Link href="/dashboard/gmail" className="text-xs text-indigo-450 hover:text-indigo-400 font-medium">
+            <Link href="/dashboard/gmail" className="text-xs text-indigo-400 hover:text-indigo-350 font-semibold tracking-wide">
               Open Inbox
             </Link>
           </div>
 
-          <div className="mt-4 flex-1 divide-y divide-zinc-900/50">
+          <div className="mt-3 flex-1 divide-y divide-zinc-950">
             {loading ? (
-              <div className="flex h-36 items-center justify-center text-sm text-zinc-650">Loading emails...</div>
+              <div className="flex h-36 items-center justify-center text-xs text-zinc-650">Loading emails...</div>
             ) : messages.length === 0 ? (
-              <div className="flex h-36 flex-col items-center justify-center gap-2 text-center text-sm text-zinc-500">
-                <svg className="h-6 w-6 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="flex h-36 flex-col items-center justify-center gap-2.5 text-center text-xs text-zinc-600">
+                <svg className="h-6 w-6 text-zinc-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0V9a2 2 0 00-2-2H6a2 2 0 00-2 2v4.5m16 0h-16" />
                 </svg>
-                <span>No emails in your inbox.</span>
+                <span className="font-medium">No emails found.</span>
               </div>
             ) : (
               messages.slice(0, 5).map((msg) => {
                 const unread = isUnread(msg);
                 const colorClass = getAvatarColor(msg.from);
                 return (
-                  <Link
+                  <motion.div 
                     key={msg.id}
-                    href={`/dashboard/gmail`}
-                    className="flex items-start gap-4 py-3.5 transition-all hover:bg-zinc-900/40 rounded-xl px-2"
+                    whileHover={{ scale: 1.008 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   >
-                    {/* Initials Avatar */}
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-semibold uppercase ${colorClass}`}>
-                      {getInitials(msg.from)}
-                    </div>
+                    <Link
+                      href={`/dashboard/gmail`}
+                      className="flex items-start gap-4 py-4 transition-all hover:bg-zinc-950/60 rounded-xl px-3"
+                    >
+                      {/* Initials Avatar */}
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-[11px] font-bold uppercase ${colorClass}`}>
+                        {getInitials(msg.from)}
+                      </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className={`truncate text-sm ${unread ? "font-semibold text-zinc-100" : "text-zinc-400"}`}>
-                          {msg.from?.replace(/<.*>/, "") ?? "Unknown"}
-                        </span>
-                        <span className="shrink-0 text-xs text-zinc-500">{formatDate(msg.receivedAt)}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`truncate text-xs md:text-sm tracking-wide ${unread ? "font-bold text-zinc-150" : "text-zinc-400"}`}>
+                            {msg.from?.replace(/<.*>/, "") ?? "Unknown"}
+                          </span>
+                          <span className="shrink-0 text-[10px] font-semibold text-zinc-550">{formatDate(msg.receivedAt)}</span>
+                        </div>
+                        <div className={`mt-0.5 truncate text-xs md:text-sm ${unread ? "font-semibold text-zinc-200" : "text-zinc-400"}`}>
+                          {msg.subject ?? "(no subject)"}
+                        </div>
+                        <div className="mt-1 line-clamp-1 text-xs text-zinc-500 leading-normal">
+                          {msg.snippet}
+                        </div>
                       </div>
-                      <div className={`mt-0.5 truncate text-sm ${unread ? "font-medium text-zinc-200" : "text-zinc-400"}`}>
-                        {msg.subject ?? "(no subject)"}
-                      </div>
-                      <div className="mt-0.5 line-clamp-1 text-xs text-zinc-500">
-                        {msg.snippet}
-                      </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  </motion.div>
                 );
               })
             )}
