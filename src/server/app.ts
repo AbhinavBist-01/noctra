@@ -13,22 +13,22 @@ import { requireAuth } from "./middleware/auth";
 
 export const app = express();
 
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
-  }),
-);
 app.use(express.json());
 app.use(requestLogger);
 
-app.use("/api/auth", authRoute);
+const browserCors = cors({
+  origin: "http://localhost:3000",
+  credentials: true,
+});
 
-app.use("/api/health", healthRoute);
-app.use("/api/gmail", requireAuth, gmailRoute);
-app.use("/api/calendar", requireAuth, calendarRoute);
-app.use("/api/command", requireAuth, commandRoute);
-app.use("/api/sync", requireAuth, syncRoute);
+app.use("/api/auth", browserCors, authRoute);
+
+app.use("/api/health", browserCors, healthRoute);
+app.use("/api/gmail", browserCors, requireAuth, gmailRoute);
+app.use("/api/calendar", browserCors, requireAuth, calendarRoute);
+app.use("/api/command", browserCors, requireAuth, commandRoute);
+app.use("/api/sync", browserCors, requireAuth, syncRoute);
+
 app.use("/api/webhooks", webhookRoute);
 
 app.use(errorHandler);

@@ -109,9 +109,19 @@ export default function GmailPage() {
     setError(null);
     setNextCursor(undefined);
     try {
-      await apiFetch("/api/gmail/refresh", { method: "POST" });
+      const refRes = await apiFetch("/api/gmail/refresh", { method: "POST" });
+      if (!refRes.ok) {
+        const refJson = await refRes.json().catch(() => null);
+        const msg = refJson?.error?.message ?? `Refresh failed: ${refRes.status}`;
+        setError(msg);
+        return;
+      }
       const res = await apiFetch("/api/gmail/messages?limit=30");
-      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Server error: ${res.status}`);
+        return;
+      }
       const json = await res.json();
       const msgs: GmailMessage[] = json.data?.messages ?? json.data ?? [];
       setMessages(sortByPriority(msgs));
@@ -127,7 +137,11 @@ export default function GmailPage() {
     setLoadingMore(true);
     try {
       const res = await apiFetch(`/api/gmail/messages?limit=30&cursor=${nextCursor}`);
-      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Server error: ${res.status}`);
+        return;
+      }
       const json = await res.json();
       const newMsgs: GmailMessage[] = json.data?.messages ?? json.data ?? [];
       setMessages((prev) => sortByPriority([...prev, ...newMsgs]));
@@ -144,7 +158,11 @@ export default function GmailPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messageId: selectedMessage.id }),
       });
-      if (!res.ok) { setError(`Summarize failed: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Summarize failed: ${res.status}`);
+        return;
+      }
       const json = await res.json();
       setSummary(json.data?.summary ?? null);
     } catch { setError(`Could not connect to API at ${API}`); }
@@ -158,7 +176,11 @@ export default function GmailPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),
       });
-      if (!res.ok) { setError(`Server error: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Server error: ${res.status}`);
+        return;
+      }
       const json = await res.json();
       const actions: CommandPreviewAction[] = json.data?.actions ?? [];
       if (actions.length > 0) setPreview(actions);
@@ -169,7 +191,11 @@ export default function GmailPage() {
   const handleTrash = useCallback(async (messageId: string) => {
     try {
       const res = await apiFetch(`/api/gmail/messages/${messageId}/trash`, { method: "POST" });
-      if (!res.ok) { setError(`Trash failed: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Trash failed: ${res.status}`);
+        return;
+      }
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
       if (selectedId === messageId) setSelectedId(null);
     } catch { setError("Could not connect to API"); }
@@ -187,7 +213,11 @@ export default function GmailPage() {
           body: msg.body,
         }),
       });
-      if (!res.ok) { setError(`Send failed: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Send failed: ${res.status}`);
+        return;
+      }
       setComposeOpen(false);
       refresh();
     } catch { setError("Could not connect to API"); }
@@ -202,7 +232,11 @@ export default function GmailPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actions: preview }),
       });
-      if (!res.ok) { setError(`Execution failed: ${res.status}`); return; }
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Execution failed: ${res.status}`);
+        return;
+      }
       setPreview(null); refresh();
     } catch { setError(`Could not connect to API at ${API}`); }
     finally { setExecuting(false); }
