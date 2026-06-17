@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={cn("h-full", "font-mono")}>
+    <html lang="en" className={cn("h-full dark", "font-sans")}>
       <body className="h-full bg-zinc-950 text-zinc-100 antialiased">
         {children}
       </body>

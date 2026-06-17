@@ -89,7 +89,15 @@ export const getGmailMessages = async (input: {
 export const getGmailMessageById = async (messageId: string) => {
   try {
     const tenant = getTenant();
-    const entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+    let entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+    if (!entity) {
+      const fetched = await tenant.gmail.api.messages.get({ id: messageId } as any);
+      const data = fetched.data ?? fetched;
+      if (data) {
+        await tenant.gmail.db.messages.upsertByEntityId(messageId, data);
+        entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+      }
+    }
     if (!entity) return null;
     return mapGmailMessageDetail(entity.data ?? entity);
   } catch (error) {
@@ -199,7 +207,11 @@ export const refreshGmailMessages = async () => {
     const items = (listRes as any)?.messages ?? [];
     for (const item of items) {
       if (item?.id) {
-        await tenant.gmail.api.messages.get({ id: item.id } as any);
+        const fetched = await tenant.gmail.api.messages.get({ id: item.id } as any);
+        const data = fetched.data ?? fetched;
+        if (data) {
+          await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
+        }
       }
     }
   } catch (error) {

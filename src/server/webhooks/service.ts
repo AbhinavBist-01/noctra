@@ -81,12 +81,16 @@ async function handleGmailNotification(historyId: string) {
     for (const item of items) {
       if (item?.id) {
         try {
-          await tenant.gmail.api.messages.get({ id: item.id } as any);
+          const res = await tenant.gmail.api.messages.get({ id: item.id } as any);
+          const data = res.data ?? res;
+          if (data) {
+            await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
+          }
           fetched++;
         } catch { /* skip individual failures */ }
       }
     }
-    console.log(`[WEBHOOK] Fetched ${fetched} messages`);
+    console.log(`[WEBHOOK] Fetched and cached ${fetched} messages`);
     return fetched;
   } catch (error: any) {
     console.error(`[WEBHOOK] Failed to fetch messages:`, error?.message);
