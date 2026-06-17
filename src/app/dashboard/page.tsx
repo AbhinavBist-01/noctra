@@ -41,20 +41,30 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    apiFetch("/api/sync/setup", { method: "POST" })
-      .then((r) => { if (!r.ok) console.warn("Sync setup failed"); })
-      .catch(() => {});
+    (async () => {
+      try {
+        await apiFetch("/api/sync/setup", { method: "POST" });
+      } catch {
+        // sync may fail on first run; continue anyway
+      }
 
-    Promise.all([
-      apiFetch("/api/gmail/messages?limit=6").then((r) => r.ok ? r.json() : { data: [] }),
-      apiFetch("/api/calendar/events").then((r) => r.ok ? r.json() : { data: [] }),
-    ])
-      .then(([mailJson, calJson]) => {
+      try {
+        const [mailRes, calRes] = await Promise.all([
+          apiFetch("/api/gmail/messages?limit=6"),
+          apiFetch("/api/calendar/events"),
+        ]);
+
+        const mailJson = mailRes.ok ? await mailRes.json() : { data: [] };
+        const calJson = calRes.ok ? await calRes.json() : { data: [] };
+
         setMessages(mailJson.data?.messages ?? mailJson.data ?? []);
         setEvents(calJson.data?.events ?? calJson.data ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      } catch {
+        // network error — leave defaults
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   return (

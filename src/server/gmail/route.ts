@@ -86,9 +86,11 @@ gmailRoute.post("/summarize", async (req, res) => {
   res.status(200).json({ data: { summary } });
 });
 
-gmailRoute.post("/refresh", async (_req, res) => {
-  await refreshGmailMessages();
-  res.status(200).json({
-    data: { success: true },
-  });
+gmailRoute.post("/refresh", async (_req, res, next) => {
+  try {
+    await refreshGmailMessages();
+    res.status(200).json({ data: { success: true } });
+  } catch (error) {
+    next(error);
+  }
 });

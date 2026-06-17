@@ -1,10 +1,10 @@
 import { db } from "../db";
 import { account, corsairIntegrations, corsairAccounts } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { corsair } from "../corsair";
+import { getTenant } from "../corsair/tenant";
 import { AppError } from "../lib/app-error";
 import { randomUUID } from "node:crypto";
-
+import { corsair } from "../corsair";
 export type SyncResult = {
   gmail: boolean;
   calendar: boolean;
@@ -120,7 +120,7 @@ async function ensureIntegrationAndKeys(
 }
 
 export async function setupUserSync(userId: string): Promise<SyncResult> {
-  const tenant = corsair.withTenant(process.env.CORSAIR_TENANT_ID ?? "dev");
+  const tenant = getTenant();
 
   await ensureIntegrationAndKeys(userId, tenant);
 

@@ -185,15 +185,6 @@ export const refreshGmailMessages = async () => {
       }
     }
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes("DEK") ||
-        error.message.includes("Forbidden") ||
-        error.message.includes("Integration"))
-    ) {
-      console.log("[gmail] Refresh skipped:", error.message);
-      return;
-    }
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to refresh: ${error instanceof Error ? error.message : "Unknown error"}`,
