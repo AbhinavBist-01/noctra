@@ -22,21 +22,16 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.BETTER_AUTH_GOOGLE_CLIENT_ID!,
       clientSecret: process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET!,
-      // CRITICAL: Declare scopes upfront
+      accessType: "offline",
+      prompt: "select_account consent",
       scope: [
         "openid",
         "profile",
         "email",
         "https://www.googleapis.com/auth/gmail.readonly",
-        "https://www.googleapis.com/auth/gmail.modify", // for mark read/archive
+        "https://www.googleapis.com/auth/gmail.modify",
         "https://www.googleapis.com/auth/calendar.readonly",
       ],
-      authorization: {
-        params: {
-          accessType: "offline",
-          prompt: "select_account consent",
-        },
-      },
     },
   },
 });
