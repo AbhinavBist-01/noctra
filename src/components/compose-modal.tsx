@@ -6,12 +6,13 @@ type Props = {
   onSend: (msg: { to: string; subject: string; body: string }) => Promise<void>;
   onClose: () => void;
   sending: boolean;
+  defaults?: { to?: string; subject?: string; body?: string };
 };
 
-export function ComposeModal({ onSend, onClose, sending }: Props) {
-  const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+export function ComposeModal({ onSend, onClose, sending, defaults }: Props) {
+  const [to, setTo] = useState(defaults?.to ?? "");
+  const [subject, setSubject] = useState(defaults?.subject ?? "");
+  const [body, setBody] = useState(defaults?.body ?? "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -73,7 +73,7 @@ export async function startNgrok(port: number = 4000): Promise<string> {
       // v2 format: Forwarding https://xxxx.ngrok.io -> http://localhost:PORT
       const fwdMatch = msg.match(/Forwarding\s+(https:\/\/[^\s]+)/);
       if (fwdMatch && !resolved) {
-        tunnelUrl = fwdMatch[1];
+        tunnelUrl = fwdMatch[1] ?? null;
         resolved = true;
         console.log(`[ngrok] Tunnel opened: ${tunnelUrl}`);
         resolve(tunnelUrl);

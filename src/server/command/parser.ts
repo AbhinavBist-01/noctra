@@ -301,33 +301,29 @@ For attendees, extract emails only.`,
 
     // Convert agent response to our format
     const actions: CommandPreviewAction[] = response.actions.map((a) => {
-      const action: CommandPreviewAction = {
-        id: nextId(),
-        type: a.type,
-      };
+      const id = nextId();
 
       if (a.type === "email_send" || a.type === "email_draft") {
         return {
-          ...action,
+          id,
+          type: a.type,
           to: a.to || [],
           subject: a.subject || "",
           body: a.body || "",
         };
       }
 
-      if (a.type === "calendar_invite") {
-        return {
-          ...action,
-          title: a.title || "Meeting",
-          description: a.description || "",
-          start: a.start || new Date(Date.now() + 3600000).toISOString(),
-          end: a.end || new Date(Date.now() + 7200000).toISOString(),
-          timezone: a.timezone || "UTC",
-          attendees: a.attendees || [],
-        };
-      }
-
-      return action;
+      // a.type === "calendar_invite"
+      return {
+        id,
+        type: "calendar_invite",
+        title: a.title || "Meeting",
+        description: a.description || "",
+        start: a.start || new Date(Date.now() + 3600000).toISOString(),
+        end: a.end || new Date(Date.now() + 7200000).toISOString(),
+        timezone: a.timezone || "UTC",
+        attendees: a.attendees || [],
+      };
     });
 
     return {

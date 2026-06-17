@@ -127,7 +127,7 @@ gmailRoute.get("/debug/raw", async (_req, res, next) => {
       if (!id) return { raw: m, fetched: null };
       try {
         const fetched = await tenant.gmail.api.messages.get({ id } as any);
-        return { raw: m, fetched: fetched.data ?? fetched };
+        return { raw: m, fetched: (fetched as any).data ?? fetched };
       } catch (e: any) {
         return { raw: m, fetched: null, error: e.message };
       }

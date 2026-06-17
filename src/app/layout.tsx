@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={cn("h-full dark", "font-sans")}>
-      <body className="h-full bg-zinc-950 text-zinc-100 antialiased">
+      <body className="h-full bg-[#020206] text-zinc-100 antialiased">
         {children}
       </body>
     </html>

@@ -92,7 +92,7 @@ export const getGmailMessageById = async (messageId: string) => {
     let entity = await tenant.gmail.db.messages.findByEntityId(messageId);
     if (!entity) {
       const fetched = await tenant.gmail.api.messages.get({ id: messageId } as any);
-      const data = fetched.data ?? fetched;
+      const data = (fetched as any).data ?? fetched;
       if (data) {
         await tenant.gmail.db.messages.upsertByEntityId(messageId, data);
         entity = await tenant.gmail.db.messages.findByEntityId(messageId);
@@ -208,7 +208,7 @@ export const refreshGmailMessages = async () => {
     for (const item of items) {
       if (item?.id) {
         const fetched = await tenant.gmail.api.messages.get({ id: item.id } as any);
-        const data = fetched.data ?? fetched;
+        const data = (fetched as any).data ?? fetched;
         if (data) {
           await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
         }
