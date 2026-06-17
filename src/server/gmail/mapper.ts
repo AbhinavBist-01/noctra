@@ -12,6 +12,9 @@ type RawGmailMessage = {
   snippet?: string;
   labelIds?: string[];
   internalDate?: string | number;
+  from?: string;
+  to?: string | string[];
+  subject?: string;
   payload?: {
     headers?: GmailHeader[];
     body?: {
@@ -26,12 +29,33 @@ type RawGmailMessage = {
   };
 };
 
-const getHeader = (message: RawGmailMessage, headerName: string) => {
+const getHeaderValue = (message: RawGmailMessage, headerName: string) => {
   const headers = message.payload?.headers ?? [];
-
   return headers.find(
     (header) => header.name?.toLowerCase() === headerName.toLowerCase(),
   )?.value;
+};
+
+const getFrom = (message: RawGmailMessage): string | undefined => {
+  if (message.from) return message.from;
+  return getHeaderValue(message, "from");
+};
+
+const getSubject = (message: RawGmailMessage): string | undefined => {
+  if (message.subject) return message.subject;
+  return getHeaderValue(message, "subject");
+};
+
+const getTo = (message: RawGmailMessage): string[] | undefined => {
+  if (message.to) {
+    if (Array.isArray(message.to)) return message.to;
+    return message.to.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  const headerVal = getHeaderValue(message, "to");
+  if (headerVal) {
+    return headerVal.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return undefined;
 };
 
 const decodeBase64Url = (value?: string) => {
@@ -64,22 +88,23 @@ const getReceivedAt = (message: RawGmailMessage) => {
 export const mapGmailMessageSummary = (
   message: RawGmailMessage,
 ): GmailMessageSummary => {
+  const from = getFrom(message);
+  const subject = getSubject(message);
+  const snippet = message.snippet;
+
   return {
     id: message.id ?? "",
     threadId: message.threadId,
-    from: getHeader(message, "from"),
-    to: getHeader(message, "to")
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean),
-    subject: getHeader(message, "subject"),
-    snippet: message.snippet,
+    from,
+    to: getTo(message),
+    subject,
+    snippet,
     receivedAt: getReceivedAt(message),
     labels: message.labelIds,
     priority: classifyGmailPriority({
-      from: getHeader(message, "from"),
-      subject: getHeader(message, "subject"),
-      snippet: message.snippet,
+      from,
+      subject,
+      snippet,
       labels: message.labelIds,
     }),
   };

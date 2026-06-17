@@ -3,12 +3,6 @@ import type { CreateCalendarInviteRequest } from "@/shared/calendar";
 import { getTenant } from "../corsair/tenant";
 import { mapCalendarEventSummary } from "./mapper";
 import { AppError } from "../lib/app-error";
-import type {
-  CalendarDbSearchParams,
-  CalendarDbListParams,
-  CalendarEventCreateParams,
-  CalendarEventGetManyParams,
-} from "../lib/corsair-types";
 
 export const getCalendarEvents = async (input: {
   query?: string;
@@ -18,28 +12,12 @@ export const getCalendarEvents = async (input: {
   try {
     const tenant = getTenant();
 
-    if (input.query) {
-      const params: CalendarDbSearchParams = {
-        query: input.query,
-        weekStart: input.weekStart,
-        weekEnd: input.weekEnd,
-      };
-      const raw = await tenant.googlecalendar.api.events.getMany(
-        params as any,
-      );
-      const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
-      return {
-        events: list.map((e: any) => mapCalendarEventSummary(e.data ?? e)),
-      };
-    }
+    const params: Record<string, any> = {};
+    if (input.weekStart) params.timeMin = input.weekStart;
+    if (input.weekEnd) params.timeMax = input.weekEnd;
+    if (input.query) params.q = input.query;
 
-    const params: CalendarDbListParams = {
-      weekStart: input.weekStart,
-      weekEnd: input.weekEnd,
-    };
-    const raw = await tenant.googlecalendar.api.events.getMany(
-      params as any,
-    );
+    const raw = await tenant.googlecalendar.api.events.getMany(params as any);
     const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
     return {
       events: list.map((e: any) => mapCalendarEventSummary(e.data ?? e)),
@@ -58,13 +36,25 @@ export const draftCalendarEvent = async (
   return { draft: input };
 };
 
+export const refreshCalendarEvents = async () => {
+  try {
+    const tenant = getTenant();
+    await tenant.googlecalendar.api.events.getMany({ maxResults: 50 } as any);
+  } catch (error) {
+    throw new AppError(
+      "CORSAIR_ERROR",
+      `Failed to refresh calendar: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+};
+
 export const createCalendarInvite = async (
   input: CreateCalendarInviteRequest,
 ) => {
   try {
     const tenant = getTenant();
 
-    const params: CalendarEventCreateParams = {
+    const params = {
       event: {
         summary: input.title,
         description: input.description,

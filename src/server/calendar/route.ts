@@ -10,31 +10,53 @@ import {
   createCalendarInvite,
   draftCalendarEvent,
   getCalendarEvents,
+  refreshCalendarEvents,
 } from "./service";
 
 export const calendarRoute = Router();
 
-calendarRoute.get("/events", async (req, res) => {
-  const query = validate(ListCalendarEventsQuerySchema, req.query);
-  const result = await getCalendarEvents({
-    query: query.query,
-    weekStart: query.weekStart,
-    weekEnd: query.weekEnd,
-  });
+calendarRoute.get("/events", async (req, res, next) => {
+  try {
+    const query = validate(ListCalendarEventsQuerySchema, req.query);
+    const result = await getCalendarEvents({
+      query: query.query,
+      weekStart: query.weekStart,
+      weekEnd: query.weekEnd,
+    });
 
-  res.status(200).json({ data: result });
+    res.status(200).json({ data: result });
+  } catch (error) {
+    next(error);
+  }
 });
 
-calendarRoute.post("/events/draft", async (req, res) => {
-  const body = validate(CreateCalendarInviteRequestSchema, req.body);
-  const result = await draftCalendarEvent(body);
+calendarRoute.post("/events/draft", async (req, res, next) => {
+  try {
+    const body = validate(CreateCalendarInviteRequestSchema, req.body);
+    const result = await draftCalendarEvent(body);
 
-  res.status(200).json({ data: result });
+    res.status(200).json({ data: result });
+  } catch (error) {
+    next(error);
+  }
 });
 
-calendarRoute.post("/invites", async (req, res) => {
-  const body = validate(CreateCalendarInviteRequestSchema, req.body);
-  const result = await createCalendarInvite(body);
+calendarRoute.post("/refresh", async (_req, res, next) => {
+  try {
+    await refreshCalendarEvents();
+    res.status(200).json({ data: { success: true } });
+  } catch (error) {
+    next(error);
+  }
+});
 
-  res.status(201).json({ data: result });
+calendarRoute.post("/invites", async (req, res, next) => {
+  try {
+    const body = validate(CreateCalendarInviteRequestSchema, req.body);
+    const result = await createCalendarInvite(body);
+
+    res.status(201).json({ data: result });
+  } catch (error) {
+    next(error);
+  }
 });

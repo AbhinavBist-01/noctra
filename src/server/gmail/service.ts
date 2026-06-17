@@ -2,8 +2,6 @@ import { getTenant } from "../corsair/tenant";
 import { mapGmailMessageDetail, mapGmailMessageSummary } from "./mapper";
 import { AppError } from "../lib/app-error";
 import type {
-  GmailDbSearchParams,
-  GmailDbListParams,
   GmailDraftCreateParams,
   GmailDraftSendParams,
   GmailMessageSendParams,
@@ -28,12 +26,11 @@ export const getGmailMessages = async (input: {
     const limit = input.limit ?? 20;
 
     if (input.query) {
-      const params: GmailDbSearchParams = {
+      const raw = await tenant.gmail.db.messages.search({
         query: input.query,
         limit: limit + 1,
         offset,
-      };
-      const raw = await tenant.gmail.api.messages.get(params as any);
+      } as any);
       const allMessages = Array.isArray(raw) ? raw : [];
       const sorted = sortByInternalDateDesc(
         allMessages.map((m: any) => m.data ?? m),
@@ -46,9 +43,10 @@ export const getGmailMessages = async (input: {
       };
     }
 
-    const params: GmailDbListParams = { limit: 200, offset: 0 };
-    const raw = await tenant.gmail.api.messages.list(params as any);
-    const allMessages = Array.isArray(raw) ? raw : [];
+    const raw = await tenant.gmail.db.messages.list({ limit: 200, offset: 0 } as any);
+    const allMessages = Array.isArray(raw)
+      ? raw
+      : ((raw as any)?.messages ?? []);
     const sorted = sortByInternalDateDesc(
       allMessages.map((m: any) => m.data ?? m),
     );

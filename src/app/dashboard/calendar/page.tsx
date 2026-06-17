@@ -83,18 +83,13 @@ export default function CalendarPage() {
   const [suggestion, setSuggestion] = useState<string | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const fetchEvents = useCallback(async (start: Date) => {
     setLoading(true);
     setError(null);
     try {
-      const refreshRes = await apiFetch("/api/calendar/refresh", { method: "POST" });
-      if (!refreshRes.ok) {
-        const refreshJson = await refreshRes.json().catch(() => null);
-        setError(refreshJson?.error?.message ?? `Refresh failed: ${refreshRes.status}`);
-        return;
-      }
       const weekEnd = getWeekEnd(start);
       const res = await apiFetch(
         `/api/calendar/events?weekStart=${start.toISOString()}&weekEnd=${weekEnd.toISOString()}`,
@@ -117,16 +112,18 @@ export default function CalendarPage() {
 
   const hasScrolled = useRef(false);
   useEffect(() => {
+    const n = new Date();
+    setNow(n);
     if (scrollRef.current && !hasScrolled.current) {
-      const now = new Date();
-      const nowTop = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT;
+      const nowTop = (n.getHours() + n.getMinutes() / 60) * HOUR_HEIGHT;
       scrollRef.current.scrollTop = Math.max(0, nowTop - 200);
       hasScrolled.current = true;
     }
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  const now = new Date();
-  const nowTop = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT;
+  const nowTop = now ? (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT : 0;
 
   const handleCommand = useCallback(async (command: string) => {
     setError(null);
@@ -265,7 +262,7 @@ export default function CalendarPage() {
             {/* Day columns */}
             {days.map((day, i) => {
               const dayEvents = events.filter((e) => isSameDay(day, e.start));
-              const isToday = day.toDateString() === now.toDateString();
+              const isToday = now ? day.toDateString() === now.toDateString() : false;
               return (
                 <div key={i} className="relative flex flex-1 flex-col">
                   {/* Sticky day header */}
