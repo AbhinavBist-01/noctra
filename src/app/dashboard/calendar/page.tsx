@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { apiFetch } from "@/server/lib/api-client";
 import { CommandBar } from "@/components/command-bar";
 import { PreviewModal } from "@/components/preview-modal";
+import { CreateEventModal } from "@/components/create-event-modal";
 import type { CommandPreviewAction } from "@/shared/command";
 
 type CalendarEvent = {
@@ -81,6 +82,8 @@ export default function CalendarPage() {
   const [preview, setPreview] = useState<CommandPreviewAction[] | null>(null);
   const [executing, setExecuting] = useState(false);
   const [suggestion, setSuggestion] = useState<string | undefined>();
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const fetchEvents = useCallback(async (start: Date) => {
@@ -142,6 +145,21 @@ export default function CalendarPage() {
     finally { setExecuting(false); }
   }, [preview, fetchEvents, weekStart]);
 
+  const handleCreate = useCallback(async (event: {
+    title: string; description?: string; start: string; end: string; timezone?: string; attendees: { email: string; name?: string }[];
+  }) => {
+    setCreating(true); setError(null);
+    try {
+      const res = await apiFetch("/api/calendar/invites", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+      });
+      if (!res.ok) { setError(`Failed to create event: ${res.status}`); return; }
+      setShowCreate(false); fetchEvents(weekStart);
+    } catch { setError(`Could not connect to API at ${API}`); }
+    finally { setCreating(false); }
+  }, [fetchEvents, weekStart]);
+
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + i);
@@ -180,6 +198,12 @@ export default function CalendarPage() {
         </div>
         <div className="flex items-center gap-2">
           {loading && <span className="text-xs text-zinc-500">Syncing...</span>}
+          <button
+            onClick={() => setShowCreate(true)}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
+          >
+            + Create
+          </button>
           <button
             onClick={() => fetchEvents(weekStart)}
             disabled={loading}
@@ -266,6 +290,14 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {showCreate && (
+        <CreateEventModal
+          onCreate={handleCreate}
+          onClose={() => setShowCreate(false)}
+          creating={creating}
+        />
+      )}
 
       <CommandBar
         onExecute={handleCommand}
