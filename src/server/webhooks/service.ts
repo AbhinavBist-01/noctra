@@ -1,5 +1,6 @@
 import { processWebhook as corsairProcessWebhook } from "corsair";
 import { corsair } from "../corsair";
+import { getTenant } from "../corsair/tenant";
 
 // In-memory webhook activity log (last 100 entries)
 type WebhookLogEntry = {
@@ -59,23 +60,38 @@ function detectWebhookType(
   if (typeof body === "string") return { type: "unknown", event: "raw_string" };
   const b = body as Record<string, any>;
 
-  // Gmail Pub/Sub notification
   if (b.historyId || b.emailAddress) {
     return { type: "gmail", event: b.historyId ? `historyId:${b.historyId}` : "inbox_change" };
   }
 
-  // Google Calendar push notification
   if (b.resourceId || b.syncToken) {
     return { type: "calendar", event: b.resourceId ?? "sync" };
   }
 
-  // X-Goog-Header detection
-  const googHeaders = Object.keys(headers).filter((h) => h.toLowerCase().startsWith("x-goog"));
-  if (googHeaders.length > 0) {
-    return { type: "gmail", event: "goog_header" };
-  }
-
   return { type: "unknown", event: Object.keys(b).slice(0, 3).join(",") || "empty" };
+}
+
+async function handleGmailNotification(historyId: string) {
+  const tenant = getTenant();
+  console.log(`[WEBHOOK] Fetching messages after historyId ${historyId}`);
+  try {
+    const listRes = await tenant.gmail.api.messages.list({ maxResults: 20 } as any);
+    const items = (listRes as any)?.messages ?? [];
+    let fetched = 0;
+    for (const item of items) {
+      if (item?.id) {
+        try {
+          await tenant.gmail.api.messages.get({ id: item.id } as any);
+          fetched++;
+        } catch { /* skip individual failures */ }
+      }
+    }
+    console.log(`[WEBHOOK] Fetched ${fetched} messages`);
+    return fetched;
+  } catch (error: any) {
+    console.error(`[WEBHOOK] Failed to fetch messages:`, error?.message);
+    throw error;
+  }
 }
 
 export const processWebhook = async (
@@ -85,32 +101,38 @@ export const processWebhook = async (
 ) => {
   console.log("[WEBHOOK] Received");
 
-  const { type, event } = detectWebhookType(headers, body);
-
   // Decode Pub/Sub envelope if present
   const decodedBody = decodePubSubBody(body);
+  const decoded = typeof decodedBody === "object" && decodedBody !== null ? decodedBody as Record<string, any> : null;
+  const { type, event } = detectWebhookType(headers, decoded ?? body);
 
+  // Try corsair webhook processing first
   try {
-    const result = await corsairProcessWebhook(
-      corsair,
-      headers,
-      decodedBody,
-      query,
-    );
-
+    const result = await corsairProcessWebhook(corsair, headers, decodedBody, query);
     if (result.plugin) {
       addWebhookLog({ type, event: `${result.plugin}.${result.action}`, status: "success" });
       console.log(`[WEBHOOK] Handled by ${result.plugin}.${result.action}`);
-    } else {
-      addWebhookLog({ type, event, status: "success", detail: "no plugin matched" });
-      console.log(`[WEBHOOK] No plugin matched for ${type}:${event}`);
+      return result;
     }
-    return result;
   } catch (error: any) {
-    addWebhookLog({ type, event, status: "error", detail: error?.message ?? "unknown" });
-    console.error(`[WEBHOOK] Error processing ${type}:${event}:`, error?.message);
-    throw error;
+    console.log(`[WEBHOOK] corsairProcessWebhook failed: ${error?.message}, falling back to manual handler`);
   }
+
+  // Fallback: handle Gmail notifications directly
+  if (decoded?.historyId) {
+    try {
+      const fetched = await handleGmailNotification(decoded.historyId);
+      addWebhookLog({ type: "gmail", event: `historyId:${decoded.historyId}`, status: "success", detail: `fetched ${fetched} messages` });
+      return { plugin: "gmail", action: "historyChanged", data: { historyId: decoded.historyId, fetched } };
+    } catch (error: any) {
+      addWebhookLog({ type: "gmail", event: `historyId:${decoded.historyId}`, status: "error", detail: error?.message });
+      throw error;
+    }
+  }
+
+  addWebhookLog({ type, event, status: "success", detail: "no handler matched" });
+  console.log(`[WEBHOOK] No handler matched for ${type}:${event}`);
+  return { plugin: null, action: null, data: null };
 };
 
 export const verifyWebhook = async (_query: unknown) => {

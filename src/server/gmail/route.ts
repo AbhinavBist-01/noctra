@@ -117,6 +117,27 @@ gmailRoute.post("/summarize", async (req, res, next) => {
   }
 });
 
+gmailRoute.get("/debug/raw", async (_req, res, next) => {
+  try {
+    const tenant = (await import("../corsair/tenant")).getTenant();
+    const raw = await tenant.gmail.api.messages.list({ maxResults: 2 } as any);
+    const items = (raw as any)?.messages ?? (Array.isArray(raw) ? raw : []);
+    const debug = await Promise.all(items.slice(0, 2).map(async (m: any) => {
+      const id = m.id ?? m.entityId ?? m.data?.id;
+      if (!id) return { raw: m, fetched: null };
+      try {
+        const fetched = await tenant.gmail.api.messages.get({ id } as any);
+        return { raw: m, fetched: fetched.data ?? fetched };
+      } catch (e: any) {
+        return { raw: m, fetched: null, error: e.message };
+      }
+    }));
+    res.status(200).json({ data: { rawList: raw, items: debug } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 gmailRoute.post("/refresh", async (_req, res, next) => {
   try {
     await refreshGmailMessages();

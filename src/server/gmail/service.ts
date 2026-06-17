@@ -20,6 +20,17 @@ const fetchFullMessage = async (tenant: any, partial: any) => {
   if (!id) return partial;
   const data = partial.data ?? partial;
   if (data.payload?.headers) return data;
+
+  // Log the first message's shape for debugging
+  if (!(globalThis as any).__gmailDebugLogged) {
+    (globalThis as any).__gmailDebugLogged = true;
+    console.log("[DEBUG] partial keys:", Object.keys(partial));
+    console.log("[DEBUG] partial.data keys:", data ? Object.keys(data) : "no data");
+    console.log("[DEBUG] partial snippet:", data?.snippet);
+    console.log("[DEBUG] partial.from:", data?.from);
+    console.log("[DEBUG] partial.payload:", data?.payload ? "exists" : "missing");
+  }
+
   try {
     const cached = await tenant.gmail.db.messages.findByEntityId(id);
     const full = cached?.data ?? cached;
@@ -47,6 +58,15 @@ export const getGmailMessages = async (input: {
     } else {
       raw = await tenant.gmail.api.messages.list({ maxResults: 50 } as any);
     }
+
+    // Log the first time
+    if (!(globalThis as any).__gmailListLogged) {
+      (globalThis as any).__gmailListLogged = true;
+      console.log("[DEBUG] list() raw type:", typeof raw);
+      console.log("[DEBUG] list() raw keys:", raw ? Object.keys(raw as any) : "null");
+      console.log("[DEBUG] list() raw:", JSON.stringify(raw, null, 2)?.slice(0, 500));
+    }
+
     let allMessages = Array.isArray(raw) ? raw : ((raw as any)?.messages ?? []);
     allMessages = await Promise.all(allMessages.map((m: any) => fetchFullMessage(tenant, m)));
     const sorted = sortByInternalDateDesc(allMessages);
