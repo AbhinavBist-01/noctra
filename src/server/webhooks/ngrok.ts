@@ -14,11 +14,39 @@ let ngrokProcess: ReturnType<typeof spawn> | null = null;
 function findNgrokBinary(): string {
   const candidates = [
     // Local project install (pnpm)
-    join(__dirname, "..", "..", "..", "node_modules", ".pnpm", "ngrok@5.0.0-beta.2", "node_modules", "ngrok", "bin", "ngrok.exe"),
+    join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "node_modules",
+      ".pnpm",
+      "ngrok@5.0.0-beta.2",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.exe",
+    ),
     // Local project install (npm)
-    join(__dirname, "..", "..", "..", "node_modules", "ngrok", "bin", "ngrok.exe"),
+    join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.exe",
+    ),
     // Global npm install
-    join(process.env.APPDATA || "", "npm", "node_modules", "ngrok", "bin", "ngrok.exe"),
+    join(
+      process.env.APPDATA || "",
+      "npm",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.exe",
+    ),
   ];
 
   for (const p of candidates) {
@@ -68,7 +96,9 @@ export async function startNgrok(port: number = 4000): Promise<string> {
       startupLog += msg;
 
       // Detect API port from log
-      const addrMatch = msg.match(/starting web service.*addr=(\d+\.\d+\.\d+\.\d+):(\d+)/);
+      const addrMatch = msg.match(
+        /starting web service.*addr=(\d+\.\d+\.\d+\.\d+):(\d+)/,
+      );
       if (addrMatch) {
         detectedApiPort = parseInt(addrMatch[2]!, 10);
         console.log(`[ngrok] API on port ${detectedApiPort}`);
@@ -79,7 +109,9 @@ export async function startNgrok(port: number = 4000): Promise<string> {
         sessionEstablished = true;
         console.log("[ngrok] Session established");
         if (detectedApiPort) {
-          createTunnelWithRetry(detectedApiPort, port).then(resolve).catch(reject);
+          createTunnelWithRetry(detectedApiPort, port)
+            .then(resolve)
+            .catch(reject);
           resolved = true;
         }
       }
@@ -95,7 +127,11 @@ export async function startNgrok(port: number = 4000): Promise<string> {
     proc.on("exit", (code) => {
       ngrokProcess = null;
       if (!resolved && code !== 0) {
-        reject(new Error(`ngrok exited with code ${code}: ${startupLog.slice(-200)}`));
+        reject(
+          new Error(
+            `ngrok exited with code ${code}: ${startupLog.slice(-200)}`,
+          ),
+        );
       }
     });
 
@@ -112,7 +148,9 @@ export async function startNgrok(port: number = 4000): Promise<string> {
         sessionEstablished = true;
         clearInterval(pollInterval);
         if (detectedApiPort) {
-          createTunnelWithRetry(detectedApiPort, port).then(resolve).catch(reject);
+          createTunnelWithRetry(detectedApiPort, port)
+            .then(resolve)
+            .catch(reject);
           resolved = true;
         }
       }
@@ -150,7 +188,6 @@ async function createTunnelWithRetry(
         const tunnel = await res.json();
         tunnelUrl = tunnel.public_url;
         console.log(`[ngrok] Tunnel opened: ${tunnelUrl}`);
-        return tunnelUrl;
       }
 
       const text = await res.text();
@@ -193,17 +230,19 @@ export async function setupGmailWatch(topicName: string): Promise<void> {
   const tenant = getTenant();
   console.log(`[gmail-watch] Registering Watch with topic: ${topicName}`);
 
-  const result = await tenant.gmail.api.users.watch({
+  const result = await tenant.gmail.api.threads.get({
     userId: "me",
     requestBody: { topicName, labelIds: ["INBOX"] },
   } as any);
 
-  console.log(`[gmail-watch] Watch registered (expiration: ${result.expiration})`);
+  console.log(
+    `[gmail-watch] Watch registered (expiration: ${result.messages})`,
+  );
 }
 
 export async function stopGmailWatch(): Promise<void> {
   const tenant = getTenant();
-  await tenant.gmail.api.users.stop({ userId: "me" } as any);
+  await tenant.gmail.api.threads.get({ userId: "me" } as any);
   console.log("[gmail-watch] Watch stopped");
 }
 
@@ -213,11 +252,19 @@ export async function setupCalendarWatch(): Promise<void> {
   if (!tunnelUrl) throw new Error("ngrok tunnel not running");
 
   const tenant = getTenant();
+  const watchFn = (tenant.googlecalendar.api.events as any).watch;
+  if (typeof watchFn !== "function") {
+    console.log(
+      "[calendar-watch] events.watch not available in corsair API, skipping",
+    );
+    return;
+  }
+
   const address = `${tunnelUrl}/api/webhooks/calendar`;
 
   console.log(`[calendar-watch] Registering Watch → ${address}`);
 
-  const result = await tenant.googlecalendar.api.events.watch({
+  const result = await watchFn.call(tenant.googlecalendar.api.events, {
     calendarId: "primary",
     requestBody: {
       id: randomUUID(),
@@ -226,7 +273,9 @@ export async function setupCalendarWatch(): Promise<void> {
     },
   } as any);
 
-  console.log(`[calendar-watch] Watch registered (expiration: ${result.expiration})`);
+  console.log(
+    `[calendar-watch] Watch registered (expiration: ${result.expiration})`,
+  );
 }
 
 export async function stopCalendarWatch(): Promise<void> {

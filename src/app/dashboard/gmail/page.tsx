@@ -88,8 +88,20 @@ export default function GmailPage() {
     return (localStorage.getItem("gmail:focusTab") as FocusTab) ?? "important";
   });
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [webhookLog, setWebhookLog] = useState<{ id: string; timestamp: string; type: string; event: string; status: string; detail?: string }[]>([]);
+  const [showWebhookLog, setShowWebhookLog] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const commandRef = useRef<{ focus: () => void }>(null);
+
+  const fetchWebhookLog = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/webhooks/admin/log");
+      if (res.ok) {
+        const json = await res.json();
+        setWebhookLog(json.data?.entries ?? []);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const selectedMessage = selectedDetail ?? messages.find((m) => m.id === selectedId) ?? null;
 
@@ -131,6 +143,12 @@ export default function GmailPage() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    fetchWebhookLog();
+    const interval = setInterval(fetchWebhookLog, 5000);
+    return () => clearInterval(interval);
+  }, [fetchWebhookLog]);
 
   const loadMore = useCallback(async () => {
     if (!nextCursor) return;
@@ -325,11 +343,47 @@ export default function GmailPage() {
         <span className="text-xs text-zinc-600 tabular-nums">
           {keyboardList.length}
         </span>
+        <button
+          onClick={() => { setShowWebhookLog(!showWebhookLog); if (!showWebhookLog) fetchWebhookLog(); }}
+          className={`rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+            showWebhookLog ? "bg-zinc-700 text-zinc-200" : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+          }`}
+          title="Webhook activity"
+        >
+          <span className="flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 rounded-full ${webhookLog.length > 0 ? "bg-green-500" : "bg-zinc-600"}`} />
+            Hooks
+          </span>
+        </button>
       </div>
 
       {error && (
         <div className="mx-4 mt-2 rounded-lg border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-400">
           {error}
+        </div>
+      )}
+
+      {showWebhookLog && (
+        <div className="mx-4 mt-2 rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-2">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-400">Webhook Activity</span>
+            <button onClick={fetchWebhookLog} className="text-[10px] text-zinc-500 hover:text-zinc-300">Refresh</button>
+          </div>
+          {webhookLog.length === 0 ? (
+            <p className="text-xs text-zinc-600">No webhook events received yet.</p>
+          ) : (
+            <div className="max-h-40 space-y-1 overflow-y-auto">
+              {webhookLog.map((entry) => (
+                <div key={entry.id} className="flex items-center gap-2 text-[11px]">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.status === "success" ? "bg-green-500" : "bg-red-500"}`} />
+                  <span className="text-zinc-500">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                  <span className="text-zinc-300">{entry.type}</span>
+                  <span className="truncate text-zinc-500">{entry.event}</span>
+                  {entry.detail && <span className="truncate text-zinc-600">({entry.detail})</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -15,6 +15,22 @@ const sortByInternalDateDesc = (msgs: any[]) =>
     return dateB - dateA;
   });
 
+const fetchFullMessage = async (tenant: any, partial: any) => {
+  const id = partial.id ?? partial.entityId;
+  if (!id) return partial;
+  const data = partial.data ?? partial;
+  if (data.payload?.headers) return data;
+  try {
+    const cached = await tenant.gmail.db.messages.findByEntityId(id);
+    const full = cached?.data ?? cached;
+    if (full?.payload?.headers) return full;
+  } catch { /* not in cache */ }
+  try {
+    const fetched = await tenant.gmail.api.messages.get({ id } as any);
+    return fetched.data ?? fetched;
+  } catch { return data; }
+};
+
 export const getGmailMessages = async (input: {
   query?: string;
   limit?: number;
@@ -25,31 +41,15 @@ export const getGmailMessages = async (input: {
     const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
     const limit = input.limit ?? 20;
 
+    let raw;
     if (input.query) {
-      const raw = await tenant.gmail.db.messages.search({
-        query: input.query,
-        limit: limit + 1,
-        offset,
-      } as any);
-      const allMessages = Array.isArray(raw) ? raw : [];
-      const sorted = sortByInternalDateDesc(
-        allMessages.map((m: any) => m.data ?? m),
-      );
-      const hasMore = sorted.length > limit;
-      const messages = hasMore ? sorted.slice(0, limit) : sorted;
-      return {
-        messages: messages.map((m: any) => mapGmailMessageSummary(m)),
-        nextCursor: hasMore ? String(offset + limit) : undefined,
-      };
+      raw = await tenant.gmail.api.messages.get({ query: input.query } as any);
+    } else {
+      raw = await tenant.gmail.api.messages.list({ maxResults: 50 } as any);
     }
-
-    const raw = await tenant.gmail.db.messages.list({ limit: 200, offset: 0 } as any);
-    const allMessages = Array.isArray(raw)
-      ? raw
-      : ((raw as any)?.messages ?? []);
-    const sorted = sortByInternalDateDesc(
-      allMessages.map((m: any) => m.data ?? m),
-    );
+    let allMessages = Array.isArray(raw) ? raw : ((raw as any)?.messages ?? []);
+    allMessages = await Promise.all(allMessages.map((m: any) => fetchFullMessage(tenant, m)));
+    const sorted = sortByInternalDateDesc(allMessages);
     const paged = sorted.slice(offset, offset + limit + 1);
     const hasMore = paged.length > limit;
     const messages = hasMore ? paged.slice(0, limit) : paged;
