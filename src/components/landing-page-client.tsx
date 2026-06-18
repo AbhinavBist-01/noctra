@@ -190,8 +190,18 @@ export default function LandingPageClient() {
   const [isTyping, setIsTyping] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [showResult, setShowResult] = useState<PresetResult | null>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Scroll listener for sticky navbar animation
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Stop typing on component unmount
   useEffect(() => {
@@ -266,61 +276,61 @@ export default function LandingPageClient() {
         }}
       />
 
-      {/* Floating Glassmorphic Navbar */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 relative z-50">
-        <header className="glass-panel rounded-full px-6 py-3.5 flex items-center justify-between shadow-2xl shadow-black/80 border border-white/[0.04]">
-          <Link href="/" className="outline-none">
-            <NoctraLogo className="h-8" />
-          </Link>
-          
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#sandbox" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
-              Sandbox
-            </a>
-            <a href="#workflow" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
-              Workflow
-            </a>
-            <a href="#how-to-use" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
-              How to Use
-            </a>
-            <a href="#features" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
-              Features
-            </a>
-          </nav>
+      {/* Floating Glassmorphic Navbar (Sticky with smooth scroll transition) */}
+      <div 
+        className={`w-full sticky top-0 z-50 transition-all duration-500 ease-in-out ${
+          scrolled 
+            ? "py-3 bg-[#020206]/60 backdrop-blur-md border-b border-white/[0.01] shadow-lg shadow-black/10" 
+            : "py-6 bg-transparent"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <header 
+            className={`rounded-full px-6 flex items-center justify-between border backdrop-blur-md transition-all duration-500 ease-in-out ${
+              scrolled 
+                ? "py-2.5 bg-zinc-950/90 border-amber-500/25 shadow-[0_0_25px_rgba(245,158,11,0.12)]" 
+                : "py-3.5 bg-[#020206]/60 border-white/[0.04] shadow-2xl shadow-black/80"
+            }`}
+          >
+            <Link href="/" className="outline-none">
+              <NoctraLogo className="h-8" />
+            </Link>
+            
+            <nav className="hidden md:flex items-center gap-8">
+              <a href="#sandbox" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
+                Sandbox
+              </a>
+              <a href="#workflow" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
+                Workflow
+              </a>
+              <a href="#features" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
+                Features
+              </a>
+              <a href="#how-to-use" className="text-xs font-mono text-zinc-400 hover:text-amber-500 transition-colors uppercase tracking-widest">
+                How to Use
+              </a>
+            </nav>
 
-          <div className="flex items-center gap-4">
-            <Link
-              href="/signin"
-              className="text-xs font-mono text-zinc-400 hover:text-zinc-200 transition-colors uppercase tracking-widest px-3 py-1.5"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-full bg-amber-500 hover:bg-amber-600 px-5 py-2 text-xs font-mono font-bold text-zinc-950 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03]"
-            >
-              Get Started
-            </Link>
-          </div>
-        </header>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/signin"
+                className="text-xs font-mono text-zinc-400 hover:text-zinc-200 transition-colors uppercase tracking-widest px-3 py-1.5"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-full bg-amber-300 hover:bg-amber-200 px-5 py-2 text-xs font-mono font-bold text-zinc-950 transition-all duration-300 hover:shadow-lg hover:shadow-amber-300/25 hover:scale-[1.03]"
+              >
+                Get Started
+              </Link>
+            </div>
+          </header>
+        </div>
       </div>
 
       {/* Centered Hero Section with Glass Card Backdrop */}
-      <div className="relative z-10 max-w-4xl mx-auto px-6 pt-16 pb-12 text-center flex flex-col items-center">
-        {/* Pulsing Announcement Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-1.5 rounded-full text-xs font-mono font-medium text-amber-400 mb-8 shadow-sm backdrop-blur-sm"
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-          </span>
-          <span>Nocturnal Release v1.0 is live</span>
-        </motion.div>
-
+      <div className="relative z-10 max-w-4xl mx-auto px-6 pt-12 pb-12 text-center flex flex-col items-center">
         {/* Centered Glass Panel Card containing the main hero text */}
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
@@ -351,7 +361,7 @@ export default function LandingPageClient() {
           <div className="flex flex-col sm:flex-row gap-4 pt-4 w-full sm:w-auto">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold px-8 py-4 text-base transition-all duration-300 hover:scale-[1.02] shadow-lg shadow-amber-500/20 group"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 hover:bg-amber-200 text-zinc-950 font-extrabold px-8 py-4 text-base transition-all duration-300 hover:scale-[1.02] shadow-lg shadow-amber-300/20 hover:shadow-amber-300/35 group"
             >
               <span>Start Commanding</span>
               <ArrowRight size={18} weight="bold" className="transition-transform group-hover:translate-x-1" />
@@ -517,26 +527,26 @@ export default function LandingPageClient() {
                 >
                   {/* Render Email Card */}
                   {showResult.type === "email_draft" && (
-                    <div className="border border-white/[0.05] bg-zinc-900/60 rounded-xl overflow-hidden w-full">
-                      <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5 bg-zinc-900/30 text-[10px] font-mono text-zinc-500">
+                    <div className="border border-amber-500/20 bg-gradient-to-br from-zinc-900 via-zinc-950 to-[#0e0802] rounded-xl overflow-hidden w-full shadow-[0_0_30px_rgba(245,158,11,0.08)] hover:shadow-[0_0_35px_rgba(245,158,11,0.2)] hover:border-amber-500/35 transition-all duration-300">
+                      <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5 bg-amber-500/10 text-[10px] font-mono text-zinc-400">
                         <span className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                          <span>GMAIL DRAFT GENERATED</span>
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />
+                          <span className="font-bold text-amber-400 tracking-wider">GMAIL DRAFT GENERATED</span>
                         </span>
-                        <span className="bg-red-500/10 text-red-400 border border-red-500/10 px-2 py-0.5 rounded uppercase text-[9px] font-bold">
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.15)] px-2 py-0.5 rounded uppercase text-[9px] font-bold">
                           {showResult.priority} priority
                         </span>
                       </div>
                       <div className="p-4 flex flex-col gap-3">
                         <div className="grid grid-cols-12 gap-1 border-b border-white/[0.03] pb-2 text-xs">
-                          <span className="col-span-2 text-zinc-500 font-mono">To:</span>
-                          <span className="col-span-10 text-zinc-300 font-medium font-mono">{showResult.to}</span>
+                          <span className="col-span-2 text-amber-500/80 font-mono font-bold">To:</span>
+                          <span className="col-span-10 text-zinc-300 font-semibold font-mono">{showResult.to}</span>
                         </div>
                         <div className="grid grid-cols-12 gap-1 border-b border-white/[0.03] pb-2 text-xs">
-                          <span className="col-span-2 text-zinc-500 font-mono">Subject:</span>
-                          <span className="col-span-10 text-zinc-200 font-semibold">{showResult.subject}</span>
+                          <span className="col-span-2 text-amber-500/80 font-mono font-bold">Subject:</span>
+                          <span className="col-span-10 text-zinc-100 font-bold">{showResult.subject}</span>
                         </div>
-                        <div className="text-xs text-zinc-400 mt-1 font-mono leading-relaxed bg-zinc-950/60 p-3 rounded border border-white/[0.03]">
+                        <div className="text-xs text-zinc-250 mt-1 font-mono leading-relaxed bg-zinc-950/90 p-3.5 rounded-lg border border-amber-500/15 shadow-inner">
                           {showResult.body}
                         </div>
                       </div>
@@ -545,32 +555,32 @@ export default function LandingPageClient() {
 
                   {/* Render Calendar Card */}
                   {showResult.type === "calendar_invite" && (
-                    <div className="border border-white/[0.05] bg-zinc-900/60 rounded-xl overflow-hidden w-full">
-                      <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5 bg-zinc-900/30 text-[10px] font-mono text-zinc-500">
+                    <div className="border border-cyan-500/20 bg-gradient-to-br from-zinc-900 via-zinc-950 to-[#020e14] rounded-xl overflow-hidden w-full shadow-[0_0_30px_rgba(34,211,238,0.08)] hover:shadow-[0_0_35px_rgba(34,211,238,0.20)] hover:border-cyan-500/45 transition-all duration-300">
+                      <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5 bg-cyan-500/10 text-[10px] font-mono text-zinc-400">
                         <span className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                          <span>CALENDAR EVENT STAGED</span>
+                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] animate-pulse" />
+                          <span className="font-bold text-cyan-400 tracking-wider">CALENDAR EVENT STAGED</span>
                         </span>
-                        <span className="text-zinc-500 flex items-center gap-1">
+                        <span className="text-cyan-350 flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/35 px-2 py-0.5 rounded text-[9px] font-bold font-mono shadow-[0_0_10px_rgba(34,211,238,0.15)]">
                           <Clock size={11} />
                           <span>1 hr duration</span>
                         </span>
                       </div>
                       <div className="p-4 flex items-start gap-4">
-                        <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                          <CalendarBlank size={20} />
+                        <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.25)]">
+                          <CalendarBlank size={22} />
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col gap-2">
                           <div>
-                            <div className="text-sm font-semibold text-zinc-200 truncate">{showResult.title}</div>
-                            <div className="text-xs text-cyan-400 font-mono font-medium mt-0.5">{showResult.time}</div>
+                            <div className="text-sm font-bold text-zinc-100 truncate">{showResult.title}</div>
+                            <div className="text-xs text-cyan-300 font-mono font-bold mt-1.5 bg-cyan-950/80 border border-cyan-500/25 w-fit px-2.5 py-0.5 rounded shadow-sm">{showResult.time}</div>
                           </div>
-                          <div className="text-xs text-zinc-500 border-t border-white/[0.03] pt-2">
+                          <div className="text-xs text-zinc-300 border-t border-white/[0.04] pt-2.5 leading-relaxed font-mono">
                             {showResult.description}
                           </div>
-                          <div className="flex flex-wrap gap-1.5 mt-1">
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
                             {showResult.attendees.map((email: string, i: number) => (
-                              <span key={i} className="inline-flex items-center gap-1.5 bg-zinc-800/40 border border-white/[0.03] px-2 py-0.5 rounded text-[10px] text-zinc-400 font-mono">
+                              <span key={i} className="inline-flex items-center gap-1.5 bg-zinc-800/80 border border-cyan-500/10 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono hover:border-cyan-500/30 transition-all cursor-default">
                                 <User size={9} />
                                 <span>{email}</span>
                               </span>
@@ -584,37 +594,56 @@ export default function LandingPageClient() {
                   {/* Render Chain Multi-action Card */}
                   {showResult.type === "chain" && (
                     <div className="flex flex-col" style={{ gap: dynamicGap }}>
-                      {showResult.actions.map((act: ChainAction, i: number) => (
-                        <div key={i} className="border border-white/[0.05] bg-zinc-900/60 rounded-xl overflow-hidden w-full relative">
-                          {/* Visual dotted vertical connector lines between chain action nodes */}
-                          {i < showResult.actions.length - 1 && (
-                            <div className="absolute left-9 top-14 bottom-[-16px] w-[1px] border-l border-dashed border-amber-500/30 z-0 pointer-events-none" />
-                          )}
-                          
-                          <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2 bg-zinc-900/30 text-[9px] font-mono text-zinc-500 uppercase">
-                            <span>Flow Step {i + 1}: {act.type.replace("_", " ")}</span>
-                          </div>
-                          <div className="p-4 text-xs flex flex-col gap-1.5 relative z-10">
-                            {act.type === "email_send" ? (
-                              <>
-                                  <div className="flex gap-2 font-mono"><span className="text-zinc-500 w-12 shrink-0">To:</span><span className="text-zinc-300 font-medium">{act.to}</span></div>
-                                  <div className="flex gap-2 font-mono"><span className="text-zinc-500 w-12 shrink-0">Sub:</span><span className="text-zinc-200 font-semibold">{act.subject}</span></div>
-                                  <div className="text-[11px] text-zinc-400 bg-zinc-950/45 p-2.5 rounded mt-1.5 font-mono border border-white/[0.02]">{act.body}</div>
-                              </>
-                            ) : (
-                              <div className="flex items-center gap-3">
-                                <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
-                                  <CalendarBlank size={18} />
-                                </div>
-                                <div>
-                                  <div className="font-semibold text-zinc-200">{act.title}</div>
-                                  <div className="text-[10px] text-cyan-400 font-mono mt-0.5">{act.time}</div>
-                                </div>
-                              </div>
+                      {showResult.actions.map((act: ChainAction, i: number) => {
+                        const isEmail = act.type === "email_send";
+                        const themeBorder = isEmail ? "border-amber-500/20 hover:border-amber-500/35" : "border-cyan-500/20 hover:border-cyan-500/40";
+                        const themeBg = isEmail ? "bg-gradient-to-br from-zinc-900 via-zinc-950 to-[#0e0802]" : "bg-gradient-to-br from-zinc-900 via-zinc-950 to-[#020e14]";
+                        const themeHeaderBg = isEmail ? "bg-amber-500/10" : "bg-cyan-500/10";
+                        const themeHeaderText = isEmail ? "text-amber-400 font-bold" : "text-cyan-400 font-bold";
+                        const themeIconBg = isEmail ? "bg-amber-500/20" : "bg-cyan-500/20";
+                        const themeIconText = isEmail ? "text-amber-400" : "text-cyan-300";
+                        const themeDot = isEmail ? "bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]" : "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]";
+                        const themeGlowShadow = isEmail ? "shadow-[0_0_25px_rgba(245,158,11,0.06)] hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]" : "shadow-[0_0_25px_rgba(34,211,238,0.06)] hover:shadow-[0_0_30px_rgba(34,211,238,0.15)]";
+
+                        return (
+                          <div 
+                            key={i} 
+                            className={`border ${themeBorder} ${themeBg} rounded-xl overflow-hidden w-full relative ${themeGlowShadow} transition-all duration-300`}
+                          >
+                            {/* Visual dotted vertical connector lines between chain action nodes */}
+                            {i < showResult.actions.length - 1 && (
+                              <div className="absolute left-9 top-14 bottom-[-16px] w-[1px] border-l border-dashed border-zinc-700/50 z-0 pointer-events-none" />
                             )}
+                            
+                            <div className={`flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5 ${themeHeaderBg} text-[9px] font-mono ${themeHeaderText} uppercase tracking-wider font-bold`}>
+                              <span className="flex items-center gap-1.5">
+                                <span className={`h-1.5 w-1.5 rounded-full ${themeDot} animate-pulse`} />
+                                <span>Flow Step {i + 1}: {act.type.replace("_", " ")}</span>
+                              </span>
+                            </div>
+                            
+                            <div className="p-4 text-xs flex flex-col gap-2 relative z-10">
+                              {isEmail ? (
+                                <>
+                                  <div className="flex gap-2 font-mono text-[11px]"><span className="text-amber-500/80 font-bold w-12 shrink-0">To:</span><span className="text-zinc-300 font-semibold">{act.to}</span></div>
+                                  <div className="flex gap-2 font-mono text-[11px]"><span className="text-amber-500/80 font-bold w-12 shrink-0">Subject:</span><span className="text-zinc-100 font-bold">{act.subject}</span></div>
+                                  <div className="text-[11px] text-zinc-300 bg-zinc-950/90 p-3 rounded-lg mt-1 font-mono border border-amber-500/10 leading-relaxed shadow-inner">{act.body}</div>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-11 w-11 rounded-xl ${themeIconBg} flex items-center justify-center ${themeIconText} border border-cyan-500/20 shadow-[0_0_10px_rgba(34,211,238,0.15)]`}>
+                                    <CalendarBlank size={20} />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-zinc-100 text-sm">{act.title}</div>
+                                    <div className="text-[10px] text-cyan-300 font-mono font-bold mt-1.5 bg-cyan-950/80 border border-cyan-500/20 w-fit px-2.5 py-0.5 rounded shadow-sm">{act.time}</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </motion.div>
@@ -713,6 +742,17 @@ export default function LandingPageClient() {
         </div>
       </section>
 
+      {/* 6 Features Grid */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/[0.03]" id="features">
+        <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
+          <h2 className="text-xs font-mono text-amber-500 uppercase tracking-widest font-bold">Core Capabilities</h2>
+          <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Built for speed, styled for the night</h3>
+          <p className="text-zinc-500 text-sm">No complex dropdowns or calendar picking. Type, review, and confirm.</p>
+        </div>
+
+        <AgentBentoGrid />
+      </section>
+
       {/* How to Use Section */}
       <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/[0.03]" id="how-to-use">
         <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
@@ -766,17 +806,6 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* 6 Features Grid */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/[0.03]" id="features">
-        <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
-          <h2 className="text-xs font-mono text-amber-500 uppercase tracking-widest font-bold">Core Capabilities</h2>
-          <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Built for speed, styled for the night</h3>
-          <p className="text-zinc-500 text-sm">No complex dropdowns or calendar picking. Type, review, and confirm.</p>
-        </div>
-
-        <AgentBentoGrid />
-      </section>
-
 
 
       {/* Multi-Column Footer */}
@@ -804,8 +833,8 @@ export default function LandingPageClient() {
             <div className="flex flex-col gap-2.5 text-xs font-mono text-zinc-500">
               <a href="#sandbox" className="hover:text-amber-500 transition-colors">Sandbox</a>
               <a href="#workflow" className="hover:text-amber-500 transition-colors">Workflow</a>
-              <a href="#how-to-use" className="hover:text-amber-500 transition-colors">How to Use</a>
               <a href="#features" className="hover:text-amber-500 transition-colors">Features</a>
+              <a href="#how-to-use" className="hover:text-amber-500 transition-colors">How to Use</a>
             </div>
           </div>
 
