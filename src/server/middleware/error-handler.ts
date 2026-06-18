@@ -10,6 +10,7 @@ export const errorHandler = (
   _next: NextFunction,
 ) => {
   console.error(`[ERROR] ${err.name}: ${err.message}`);
+  if (err.stack) console.error(err.stack);
 
   if (err instanceof AppError) {
     const body: ApiErrorResponse = {
@@ -19,9 +20,12 @@ export const errorHandler = (
         details: err.details,
       },
     };
-    const status = err.code === "VALIDATION_ERROR" ? 400
+    // CORSAIR_ERROR means the upstream Google API (or Corsair SDK) failed.
+    // Return 503 (service unavailable) to distinguish from network-level 502.
+    const status =
+      err.code === "VALIDATION_ERROR" ? 400
       : err.code === "NOT_FOUND" ? 404
-      : err.code === "CORSAIR_ERROR" ? 502
+      : err.code === "CORSAIR_ERROR" ? 503
       : 500;
     res.status(status).json(body);
     return;

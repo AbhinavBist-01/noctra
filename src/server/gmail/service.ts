@@ -199,20 +199,45 @@ export const getGmailDrafts = async () => {
 export const refreshGmailMessages = async () => {
   try {
     const tenant = getTenant();
-    const listParams: GmailMessageListParams = {
-      maxResults: 50,
-      labelIds: ["INBOX"],
-    };
-    const listRes = await tenant.gmail.api.messages.list(listParams as any);
-    const items = (listRes as any)?.messages ?? [];
-    for (const item of items) {
-      if (item?.id) {
-        const fetched = await tenant.gmail.api.messages.get({ id: item.id } as any);
-        const data = (fetched as any).data ?? fetched;
-        if (data) {
-          await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
+
+    // Sync both INBOX and SENT labels
+    const labelsToSync = ["INBOX", "SENT"];
+    const seenIds = new Set<string>();
+
+    for (const label of labelsToSync) {
+      const listParams: GmailMessageListParams = {
+        maxResults: 50,
+        labelIds: [label],
+      };
+      const listRes = await tenant.gmail.api.messages.list(listParams as any);
+      const items = (listRes as any)?.messages ?? [];
+      for (const item of items) {
+        if (item?.id && !seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          const fetched = await tenant.gmail.api.messages.get({ id: item.id } as any);
+          const data = (fetched as any).data ?? fetched;
+          if (data) {
+            await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
+          }
         }
       }
+    }
+
+    // Sync drafts
+    try {
+      const draftsRes = await tenant.gmail.api.drafts.list({ maxResults: 20 } as any);
+      const draftsItems = (draftsRes as any)?.drafts ?? [];
+      for (const item of draftsItems) {
+        if (item?.id) {
+          const fetched = await tenant.gmail.api.drafts.get({ id: item.id } as any);
+          const data = (fetched as any).data ?? fetched;
+          if (data) {
+            await tenant.gmail.db.drafts.upsertByEntityId(item.id, data);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.log(`[Sync] Drafts sync skipped/failed: ${err.message}`);
     }
   } catch (error) {
     throw new AppError(

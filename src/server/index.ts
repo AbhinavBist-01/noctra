@@ -22,6 +22,9 @@ async function initWebhooks(): Promise<void> {
 
 const tenant = getTenant();
 
+import { refreshGmailMessages } from "./gmail/service";
+import { refreshCalendarEvents } from "./calendar/service";
+
 app.listen(PORT, async () => {
   try {
     await tenant.gmail.api.messages.list({ maxResults: 1 } as any);
@@ -32,6 +35,17 @@ app.listen(PORT, async () => {
   console.log(`[Express] Server running on http://localhost:${PORT}`);
 
   await initWebhooks();
+
+  // Background auto-sync interval (runs every 45 seconds)
+  setInterval(async () => {
+    try {
+      await refreshGmailMessages();
+      await refreshCalendarEvents();
+      console.log("[Auto-Sync] Synced Gmail & Calendar");
+    } catch (err: any) {
+      console.log(`[Auto-Sync] Warning: ${err.message}`);
+    }
+  }, 45000);
 });
 
 process.on("SIGINT", async () => {

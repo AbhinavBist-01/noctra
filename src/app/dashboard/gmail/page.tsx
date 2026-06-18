@@ -6,6 +6,22 @@ import { apiFetch } from "@/server/lib/api-client";
 import { PreviewModal } from "@/components/preview-modal";
 import { ComposeModal } from "@/components/compose-modal";
 import type { CommandPreviewAction } from "@/shared/command";
+import {
+  EnvelopeSimple,
+  Star,
+  PaperPlaneTilt,
+  FileText,
+  Trash,
+  MagnifyingGlass,
+  Sparkle,
+  ArrowClockwise,
+  Plus,
+  Check,
+  X,
+  DotsThreeVertical,
+  CaretRight,
+  Warning
+} from "@phosphor-icons/react";
 
 type GmailMessage = {
   id: string;
@@ -155,7 +171,26 @@ export default function GmailPage() {
     finally { setLoading(false); }
   }, []);
 
+  // Silent background sync (no loading spinner)
+  const silentSync = useCallback(async () => {
+    try {
+      await apiFetch("/api/gmail/refresh", { method: "POST" });
+      const res = await apiFetch("/api/gmail/messages?limit=40");
+      if (!res.ok) return;
+      const json = await res.json();
+      const msgs: GmailMessage[] = json.data?.messages ?? json.data ?? [];
+      setMessages(sortByPriority(msgs));
+      setNextCursor(json.data?.nextCursor);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Auto-sync every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(silentSync, 30000);
+    return () => clearInterval(interval);
+  }, [silentSync]);
 
   useEffect(() => {
     fetchWebhookLog();
@@ -320,28 +355,35 @@ export default function GmailPage() {
 
   // Folder configs
   const folders = [
-    { id: "inbox" as const, label: "Inbox", icon: "📥", count: messages.filter(isUnread).length },
-    { id: "starred" as const, label: "Starred", icon: "⭐", count: messages.filter((m) => m.priority === "high").length },
-    { id: "sent" as const, label: "Sent Mail", icon: "📤", count: 0 },
-    { id: "drafts" as const, label: "Drafts", icon: "📝", count: 0 },
-    { id: "trash" as const, label: "Trash", icon: "🗑️", count: 0 },
+    { id: "inbox" as const, label: "Inbox", icon: (active: boolean) => <EnvelopeSimple size={18} weight={active ? "fill" : "regular"} />, count: messages.filter(isUnread).length },
+    { id: "starred" as const, label: "Starred", icon: (active: boolean) => <Star size={18} weight={active ? "fill" : "regular"} className={active ? "text-amber-500" : ""} />, count: messages.filter((m) => m.priority === "high").length },
+    { id: "sent" as const, label: "Sent Mail", icon: (active: boolean) => <PaperPlaneTilt size={18} weight={active ? "fill" : "regular"} />, count: 0 },
+    { id: "drafts" as const, label: "Drafts", icon: (active: boolean) => <FileText size={18} weight={active ? "fill" : "regular"} />, count: 0 },
+    { id: "trash" as const, label: "Trash", icon: (active: boolean) => <Trash size={18} weight={active ? "fill" : "regular"} />, count: 0 },
   ];
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-150">
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-[#020206] text-zinc-100 font-sans tracking-wide">
+      
+      {/* Background radial grid overlay */}
+      <div 
+        className="absolute inset-0 z-0 opacity-[0.02] pointer-events-none"
+        style={{
+          backgroundImage: "radial-gradient(ellipse at center, #f59e0b 1px, transparent 1px)",
+          backgroundSize: "32px 32px"
+        }}
+      />
       
       {/* Top Google-style Search & Action Bar */}
-      <div className="flex items-center justify-between border-b border-zinc-900 bg-zinc-950 px-6 py-3">
+      <div className="relative z-10 flex items-center justify-between border-b border-white/[0.04] bg-[#020206]/85 px-6 py-4">
         <div className="relative flex max-w-2xl flex-1 items-center">
-          <svg className="absolute left-4 h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
-          </svg>
+          <MagnifyingGlass className="absolute left-4 h-4 w-4 text-zinc-550" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search mail by sender, subject, or content..."
-            className="w-full rounded-full border border-zinc-850 bg-zinc-900/50 py-2 pr-4 pl-11 text-sm text-zinc-200 placeholder-zinc-500 outline-none transition-all focus:border-zinc-800 focus:bg-zinc-900 focus:ring-1 focus:ring-zinc-800"
+            className="w-full rounded-xl border border-white/[0.05] bg-[#020206]/85 py-2.5 pr-4 pl-11 text-xs md:text-sm text-zinc-100 placeholder-zinc-700 outline-none transition-all focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/20 font-mono"
           />
         </div>
 
@@ -349,18 +391,18 @@ export default function GmailPage() {
           <button
             onClick={refresh}
             disabled={loading}
-            className="flex items-center gap-1.5 rounded-full border border-zinc-850 bg-zinc-900/40 hover:bg-zinc-900 px-4 py-1.5 text-xs text-zinc-400 transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2.5 text-xs font-mono font-bold text-zinc-300 transition-colors disabled:opacity-40 shadow-sm cursor-pointer hover:border-white/[0.12]"
           >
-            <svg className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
-            </svg>
+            <ArrowClockwise className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>{loading ? "Refreshing..." : "Refresh"}</span>
           </button>
           
           <button
             onClick={() => { setShowWebhookLog(!showWebhookLog); if (!showWebhookLog) fetchWebhookLog(); }}
-            className={`rounded-full border border-zinc-850 px-4 py-1.5 text-xs transition-colors ${
-              showWebhookLog ? "bg-zinc-800 text-zinc-200" : "bg-zinc-900/40 text-zinc-400 hover:bg-zinc-900"
+            className={`rounded-xl border px-4 py-2.5 text-xs font-mono font-bold transition-all shadow-sm cursor-pointer ${
+              showWebhookLog 
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
+                : "border-white/[0.06] bg-white/[0.02] text-zinc-455 hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-zinc-200"
             }`}
           >
             <span className="flex items-center gap-1.5">
@@ -372,7 +414,7 @@ export default function GmailPage() {
       </div>
 
       {error && (
-        <div className="mx-6 mt-3 rounded-xl border border-red-950 bg-red-950/20 px-4 py-2.5 text-sm text-red-400">
+        <div className="relative z-10 mx-6 mt-3 rounded-xl border border-red-950 bg-red-950/20 px-4 py-2.5 text-sm text-red-400 font-mono">
           {error}
         </div>
       )}
@@ -384,22 +426,22 @@ export default function GmailPage() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="mx-6 mt-3 overflow-hidden rounded-xl border border-zinc-900 bg-zinc-900/20 p-4"
+            className="relative z-10 mx-6 mt-3 overflow-hidden rounded-xl border border-white/[0.04] bg-zinc-950/40 p-4"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Live Webhook Log</span>
-              <button onClick={fetchWebhookLog} className="text-[11px] text-indigo-400 hover:underline">Force Refresh</button>
+              <span className="font-display text-xs font-semibold uppercase tracking-wider text-zinc-350">Live Webhook Log</span>
+              <button onClick={fetchWebhookLog} className="text-[11px] font-mono font-bold text-amber-500 hover:text-amber-400 hover:underline">Force Refresh</button>
             </div>
             {webhookLog.length === 0 ? (
-              <p className="text-xs text-zinc-600">No push events received yet. Realtime notifications will appear here.</p>
+              <p className="text-xs text-zinc-600 font-mono">No push events received yet. Realtime notifications will appear here.</p>
             ) : (
               <div className="max-h-36 space-y-1.5 overflow-y-auto pr-2">
                 {webhookLog.map((entry) => (
-                  <div key={entry.id} className="flex items-center justify-between rounded-lg bg-zinc-950/40 px-3 py-1.5 text-xs">
+                  <div key={entry.id} className="flex items-center justify-between rounded-xl border border-white/[0.03] bg-zinc-950/60 px-3 py-1.5 text-xs font-mono">
                     <div className="flex items-center gap-2.5">
                       <span className={`h-2 w-2 rounded-full ${entry.status === "success" ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-red-500"}`} />
-                      <span className="font-semibold text-zinc-300 uppercase">{entry.type}</span>
-                      <span className="text-zinc-500">{entry.event}</span>
+                      <span className="font-bold text-zinc-300 uppercase">{entry.type}</span>
+                      <span className="text-zinc-550">{entry.event}</span>
                       {entry.detail && <span className="text-zinc-500 font-medium">({entry.detail})</span>}
                     </div>
                     <span className="text-[10px] text-zinc-600">{new Date(entry.timestamp).toLocaleTimeString()}</span>
@@ -412,21 +454,19 @@ export default function GmailPage() {
       </AnimatePresence>
 
       {/* Main Mailbox Dashboard Grid */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative z-10">
         
         {/* Left Google-style Mailbox Folders Sidebar */}
-        <div className="flex w-64 shrink-0 flex-col border-r border-zinc-900 bg-zinc-950/50 p-4 gap-4">
+        <div className="flex w-64 shrink-0 flex-col border-r border-white/[0.04] bg-zinc-950/20 backdrop-blur-md p-4 gap-4">
           <button
             onClick={() => {
               setComposeDefaults(undefined);
               setComposeOpen(true);
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/10 transition-all hover:scale-[1.02] active:scale-95"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 py-3 text-xs font-mono font-bold text-zinc-950 shadow-lg shadow-amber-500/10 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <span>Compose</span>
+            <Plus size={14} weight="bold" />
+            <span>COMPOSE</span>
           </button>
 
           <div className="flex flex-col gap-1">
@@ -440,19 +480,19 @@ export default function GmailPage() {
                     setSelectedId(null);
                     setFocusedIndex(0);
                   }}
-                  className={`flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+                  className={`flex items-center justify-between rounded-xl px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     active
-                      ? "bg-zinc-900 text-zinc-100 shadow-sm"
-                      : "text-zinc-500 hover:bg-zinc-900/40 hover:text-zinc-350"
+                      ? "bg-white/[0.02] border border-white/[0.05] text-amber-500 shadow-sm"
+                      : "text-zinc-400 hover:bg-white/[0.02] hover:text-zinc-200 border border-transparent"
                   }`}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="text-base">{folder.icon}</span>
+                    <span className={active ? "text-amber-500" : "text-zinc-500"}>{folder.icon(active)}</span>
                     <span>{folder.label}</span>
                   </span>
                   {folder.count > 0 && (
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      active ? "bg-indigo-600/20 text-indigo-300" : "bg-zinc-900 text-zinc-500"
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold ${
+                      active ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-white/[0.02] text-zinc-550 border border-white/[0.04]"
                     }`}>
                       {folder.count}
                     </span>
@@ -464,17 +504,17 @@ export default function GmailPage() {
         </div>
 
         {/* Email Threads List Panel */}
-        <div className="flex w-[460px] shrink-0 flex-col border-r border-zinc-900 bg-zinc-950">
-          <div className="flex items-center justify-between border-b border-zinc-900 px-4 py-3 text-xs font-semibold tracking-wider text-zinc-500 uppercase">
+        <div className="flex w-[460px] shrink-0 flex-col border-r border-white/[0.04] bg-zinc-950/10">
+          <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3 text-[10px] font-mono font-bold tracking-wider text-zinc-500 uppercase">
             <span>{currentFolder}</span>
             <span>{keyboardList.length} Messages</span>
           </div>
 
-          <div ref={listRef} className="flex-1 overflow-y-auto divide-y divide-zinc-900/30">
+          <div ref={listRef} className="flex-1 overflow-y-auto divide-y divide-white/[0.03]">
             {loading && messages.length === 0 ? (
-              <div className="flex items-center justify-center py-20 text-sm text-zinc-600">Syncing inbox...</div>
+              <div className="flex items-center justify-center py-20 text-xs font-mono text-zinc-650">Syncing inbox...</div>
             ) : keyboardList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-sm text-zinc-600 text-center px-4">
+              <div className="flex flex-col items-center justify-center py-20 text-xs text-zinc-600 text-center px-4 font-mono">
                 <span>No emails in this folder.</span>
               </div>
             ) : (
@@ -482,33 +522,43 @@ export default function GmailPage() {
                 const unread = isUnread(msg);
                 const isSelected = selectedId === msg.id;
                 const focused = idx === focusedIndex;
-                const avatarColor = getAvatarColor(msg.from);
                 return (
-                  <div
+                  <motion.div
                     key={msg.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: Math.min(idx * 0.02, 0.2) }}
                     onClick={() => { setSelectedId(msg.id); setFocusedIndex(idx); }}
-                    className={`flex cursor-pointer items-start gap-4 px-4 py-4 transition-colors ${
-                      isSelected ? "bg-zinc-900/70" : focused ? "bg-zinc-900/30" : "hover:bg-zinc-900/20"
+                    className={`flex cursor-pointer items-start gap-4 px-4 py-4.5 transition-all duration-200 border-l-2 ${
+                      isSelected 
+                        ? "bg-white/[0.03] border-amber-500 shadow-inner" 
+                        : focused 
+                        ? "bg-white/[0.01] border-white/[0.08]" 
+                        : "hover:bg-white/[0.005] border-transparent"
                     }`}
                   >
                     {/* Circle Importance Dot */}
-                    <div className="mt-1 flex shrink-0 items-center justify-center">
-                      <div className={`h-2.5 w-2.5 rounded-full ${msg.priority === "high" ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]" : "bg-zinc-700"}`} />
+                    <div className="mt-1.5 flex shrink-0 items-center justify-center">
+                      <div className={`h-2 w-2 rounded-full ${
+                        msg.priority === "high" 
+                          ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" 
+                          : "bg-zinc-800"
+                      }`} />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className={`truncate text-sm ${unread ? "font-bold text-zinc-100" : "text-zinc-400"}`}>
+                        <span className={`truncate text-xs tracking-wide ${unread ? "font-bold text-zinc-100" : "font-medium text-zinc-400"}`}>
                           {msg.from?.replace(/<.*>/, "") ?? "Unknown"}
                         </span>
-                        <span className="shrink-0 text-xs text-zinc-550">{formatDate(msg.receivedAt)}</span>
+                        <span className="shrink-0 text-[9px] font-mono font-bold text-zinc-550">{formatDate(msg.receivedAt)}</span>
                       </div>
-                      <div className={`mt-0.5 truncate text-sm ${unread ? "font-semibold text-zinc-200" : "text-zinc-400"}`}>
+                      <div className={`mt-0.5 truncate text-xs ${unread ? "font-semibold text-zinc-200" : "text-zinc-400"}`}>
                         {msg.subject || "(no subject)"}
                       </div>
-                      <div className="mt-1 line-clamp-1 text-xs text-zinc-500 leading-normal">{msg.snippet}</div>
+                      <div className="mt-1 line-clamp-1 text-[11px] text-zinc-550 leading-normal font-mono">{msg.snippet}</div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })
             )}
@@ -517,7 +567,7 @@ export default function GmailPage() {
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="w-full py-4 text-center text-xs text-zinc-500 hover:bg-zinc-900/20 transition-colors disabled:opacity-40"
+                className="w-full py-4 text-center text-xs font-mono font-bold text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.01] transition-colors disabled:opacity-40 cursor-pointer"
               >
                 {loadingMore ? "Loading more..." : "Load older messages"}
               </button>
@@ -526,44 +576,42 @@ export default function GmailPage() {
         </div>
 
         {/* Selected Email Detailed Reading Pane */}
-        <div className="flex flex-1 flex-col bg-zinc-950/20">
+        <div className="flex flex-1 flex-col bg-[#020206]/40 backdrop-blur-md">
           {!selectedMessage ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-zinc-600">
-              <svg className="h-12 w-12 text-zinc-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span className="text-sm font-medium">Select an email from the list to read</span>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-zinc-650 font-mono text-xs">
+              <EnvelopeSimple size={28} className="text-zinc-800" />
+              <span className="font-semibold tracking-wider">Select an email from the list to read</span>
             </div>
           ) : (
             <div className="flex h-full flex-col overflow-hidden">
               
               {/* Detail Header */}
-              <div className="flex items-start justify-between border-b border-zinc-900 px-6 py-5 bg-zinc-950/40">
+              <div className="flex items-start justify-between border-b border-white/[0.04] px-6 py-5 bg-[#020206]/60">
                 <div className="flex items-center gap-4">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-semibold uppercase ${getAvatarColor(selectedMessage.from)}`}>
                     {getInitials(selectedMessage.from)}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-zinc-100 line-clamp-1">{selectedMessage.subject || "(no subject)"}</h2>
-                    <div className="mt-0.5 text-xs text-zinc-400">
-                      From: <span className="font-medium text-zinc-300">{selectedMessage.from}</span>
+                    <h2 className="font-display text-base font-extrabold text-zinc-100 line-clamp-1">{selectedMessage.subject || "(no subject)"}</h2>
+                    <div className="mt-0.5 text-xs text-zinc-450 font-mono">
+                      From: <span className="font-semibold text-zinc-300 font-sans">{selectedMessage.from}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-1.5 text-right text-xs text-zinc-550">
-                  <div className="font-semibold text-zinc-450">{formatFullDate(selectedMessage.receivedAt)} · {formatTime(selectedMessage.receivedAt)}</div>
+                <div className="flex flex-col items-end gap-1.5 text-right text-xs">
+                  <div className="font-mono font-bold text-zinc-550">{formatFullDate(selectedMessage.receivedAt)} · {formatTime(selectedMessage.receivedAt)}</div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleTrash(selectedMessage.id)}
-                      className="rounded-lg border border-zinc-850 hover:border-red-900/50 hover:bg-red-950/10 px-3 py-1 text-xs text-zinc-500 hover:text-red-400 transition-all"
+                      className="rounded-xl border border-white/[0.06] bg-white/[0.01] hover:border-red-900/50 hover:bg-red-950/10 px-3.5 py-2 text-xs font-mono font-bold text-zinc-500 hover:text-red-400 transition-all cursor-pointer"
                     >
                       Delete
                     </button>
                     <button
                       onClick={handleSummarize}
                       disabled={summarizing || detailLoading}
-                      className="rounded-lg bg-indigo-600/15 hover:bg-indigo-600 px-3 py-1 text-xs text-indigo-400 hover:text-white border border-indigo-900/30 transition-all disabled:opacity-40"
+                      className="rounded-xl bg-amber-500/10 hover:bg-amber-500 px-3.5 py-2 text-xs font-mono font-bold text-amber-500 hover:text-zinc-950 border border-amber-500/20 hover:border-amber-500 transition-all disabled:opacity-40 cursor-pointer"
                     >
                       {summarizing ? "Summarizing..." : "AI Summarize"}
                     </button>
@@ -581,34 +629,37 @@ export default function GmailPage() {
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className="rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-zinc-950/60 p-4 shadow-md"
+                      className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 shadow-lg shadow-amber-500/[0.02]"
                     >
-                      <div className="mb-1.5 flex items-center justify-between text-xs font-semibold tracking-wider text-indigo-400 uppercase">
-                        <span>AI Co-Pilot Summary</span>
-                        <button onClick={() => setSummary(null)} className="text-zinc-650 hover:text-zinc-450 text-sm">×</button>
+                      <div className="mb-2 flex items-center justify-between text-[10px] font-mono font-bold tracking-widest text-amber-500 uppercase">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkle size={12} weight="fill" className="text-amber-500 animate-pulse" />
+                          AI Co-Pilot Summary
+                        </span>
+                        <button onClick={() => setSummary(null)} className="text-zinc-600 hover:text-zinc-400 text-sm font-bold">×</button>
                       </div>
-                      <p className="text-sm leading-relaxed text-zinc-300 font-medium">{summary}</p>
+                      <p className="text-sm leading-relaxed text-zinc-200 font-medium font-sans">{summary}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 {/* Email Metadata Card */}
-                <div className="rounded-xl border border-zinc-850 bg-zinc-900/10 px-4 py-3 text-xs space-y-2">
+                <div className="rounded-xl border border-white/[0.04] bg-[#020206]/40 px-4.5 py-3.5 text-xs space-y-2 font-mono">
                   <div className="flex items-baseline gap-3">
-                    <span className="w-10 font-bold text-zinc-550 uppercase">To:</span>
+                    <span className="w-10 font-bold text-zinc-500 uppercase">To:</span>
                     <span className="text-zinc-350">{selectedMessage.to?.join(", ")}</span>
                   </div>
                   {selectedMessage.priority === "high" && (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1 w-max text-xs font-medium text-yellow-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 shadow-[0_0_6px_rgba(234,179,8,0.5)]" /> High Priority Alert
+                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 w-max text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" /> High Priority Alert
                     </div>
                   )}
                 </div>
 
                 {/* Main Email Body Content */}
-                <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300 font-normal">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300 font-normal select-text">
                   {detailLoading ? (
-                    <div className="flex justify-center py-10 text-zinc-600 text-xs">Loading email body...</div>
+                    <div className="flex justify-center py-10 text-zinc-650 text-xs font-mono">Loading email body...</div>
                   ) : (
                     selectedMessage.body ?? selectedMessage.snippet
                   )}
@@ -616,11 +667,9 @@ export default function GmailPage() {
 
                 {/* Google-style AI Smart Quick Reply Suggestions */}
                 {!detailLoading && (
-                  <div className="border-t border-zinc-900 pt-6 mt-8">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-550 mb-3 flex items-center gap-1.5">
-                      <svg className="h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+                  <div className="border-t border-white/[0.04] pt-6 mt-8">
+                    <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-500 mb-4 flex items-center gap-1.5">
+                      <Sparkle size={14} weight="fill" className="text-amber-500" />
                       AI Smart Replies
                     </h3>
                     
@@ -628,7 +677,7 @@ export default function GmailPage() {
                       <button
                         onClick={() => handleGenerateSmartReply("acknowledge")}
                         disabled={generatingReply !== null}
-                        className="rounded-full border border-zinc-850 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900 px-4 py-2 text-xs font-medium text-zinc-350 hover:text-zinc-200 transition-all disabled:opacity-40"
+                        className="rounded-xl border border-white/[0.06] bg-white/[0.01] hover:border-amber-500/30 hover:bg-amber-500/5 px-4 py-2.5 text-xs font-mono font-bold text-zinc-400 hover:text-amber-550 transition-all disabled:opacity-40 cursor-pointer"
                       >
                         {generatingReply === "acknowledge" ? "Generating..." : "🤝 Acknowledge Receipt"}
                       </button>
@@ -636,7 +685,7 @@ export default function GmailPage() {
                       <button
                         onClick={() => handleGenerateSmartReply("more_time")}
                         disabled={generatingReply !== null}
-                        className="rounded-full border border-zinc-850 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900 px-4 py-2 text-xs font-medium text-zinc-350 hover:text-zinc-200 transition-all disabled:opacity-40"
+                        className="rounded-xl border border-white/[0.06] bg-white/[0.01] hover:border-amber-500/30 hover:bg-amber-500/5 px-4 py-2.5 text-xs font-mono font-bold text-zinc-400 hover:text-amber-555 transition-all disabled:opacity-40 cursor-pointer"
                       >
                         {generatingReply === "more_time" ? "Generating..." : "⏳ Ask for More Time"}
                       </button>
@@ -644,7 +693,7 @@ export default function GmailPage() {
                       <button
                         onClick={() => handleGenerateSmartReply("decline")}
                         disabled={generatingReply !== null}
-                        className="rounded-full border border-zinc-850 bg-zinc-900/40 hover:border-zinc-750 hover:bg-zinc-900 px-4 py-2 text-xs font-medium text-zinc-350 hover:text-zinc-200 transition-all disabled:opacity-40"
+                        className="rounded-xl border border-white/[0.06] bg-white/[0.01] hover:border-red-500/30 hover:bg-red-500/5 px-4 py-2.5 text-xs font-mono font-bold text-zinc-400 hover:text-red-400 transition-all disabled:opacity-40 cursor-pointer"
                       >
                         {generatingReply === "decline" ? "Generating..." : "❌ Politely Decline"}
                       </button>

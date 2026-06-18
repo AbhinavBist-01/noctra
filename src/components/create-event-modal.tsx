@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "@phosphor-icons/react";
 
 type Attendee = { email: string; name?: string };
 
@@ -56,81 +57,77 @@ export function CreateEventModal({ onCreate, onClose, creating, defaultStart }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-end p-6">
-      <div className="absolute inset-0" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end justify-end p-6 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-auto" onClick={onClose} />
       <form
         onSubmit={handleSubmit}
-        className="relative flex w-[480px] flex-col rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="relative flex w-[480px] flex-col rounded-2xl border border-white/[0.05] bg-zinc-950/95 shadow-2xl backdrop-blur-xl pointer-events-auto"
       >
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-          <span className="text-sm font-medium text-zinc-200">New Event</span>
-          <button type="button" onClick={onClose} className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+        <div className="flex items-center justify-between border-b border-white/[0.04] px-4.5 py-3.5 bg-zinc-950/60">
+          <span className="text-xs font-mono font-bold uppercase tracking-widest text-zinc-350">New Event</span>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-zinc-550 hover:bg-white/[0.03] hover:text-zinc-200 transition-colors cursor-pointer">
+            <X size={14} weight="bold" />
           </button>
         </div>
 
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-3.5 p-5">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Event title"
-            className="rounded-lg border border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-indigo-600"
+            className="rounded-xl border border-white/[0.05] bg-[#020206]/85 px-3.5 py-2.5 text-xs font-mono text-zinc-250 outline-none placeholder:text-zinc-700 focus:border-amber-500/40 w-full"
           />
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-zinc-500">Start</label>
+              <label className="mb-1 block text-[9px] font-mono font-bold uppercase text-zinc-500 tracking-wider">Start</label>
               <input
                 type="datetime-local"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none focus:border-indigo-600 [color-scheme:dark]"
+                className="w-full rounded-xl border border-white/[0.05] bg-[#020206]/85 px-3.5 py-2.5 text-xs font-mono text-zinc-250 outline-none focus:border-amber-500/40 [color-scheme:dark]"
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-zinc-500">End</label>
+              <label className="mb-1 block text-[9px] font-mono font-bold uppercase text-zinc-500 tracking-wider">End</label>
               <input
                 type="datetime-local"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="w-full rounded-lg border border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none focus:border-indigo-600 [color-scheme:dark]"
+                className="w-full rounded-xl border border-white/[0.05] bg-[#020206]/85 px-3.5 py-2.5 text-xs font-mono text-zinc-250 outline-none focus:border-amber-500/40 [color-scheme:dark]"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Attendees</label>
+            <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase text-zinc-500 tracking-wider">Attendees</label>
             <div className="flex gap-2">
               <input
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAttendee(); } }}
                 placeholder="email@example.com"
-                className="flex-1 rounded-lg border border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-indigo-600"
+                className="flex-1 rounded-xl border border-white/[0.05] bg-[#020206]/85 px-3.5 py-2.5 text-xs font-mono text-zinc-250 outline-none placeholder:text-zinc-700 focus:border-amber-500/40"
               />
               <button
                 type="button"
                 onClick={addAttendee}
                 disabled={!emailInput.trim()}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700 disabled:opacity-40"
+                className="rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.06] px-4 py-2.5 text-xs font-mono font-bold text-zinc-300 transition-colors disabled:opacity-40 cursor-pointer"
               >
                 Add
               </button>
             </div>
             {attendees.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
                 {attendees.map((a, i) => (
                   <span
                     key={i}
-                    className="flex items-center gap-1 rounded-full bg-indigo-900/50 px-2.5 py-1 text-xs text-indigo-300"
+                    className="flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-[10px] font-mono font-bold text-amber-500"
                   >
                     {a.email}
-                    <button type="button" onClick={() => removeAttendee(i)} className="text-indigo-400 hover:text-indigo-200">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                    <button type="button" onClick={() => removeAttendee(i)} className="text-amber-500 hover:text-amber-400 cursor-pointer">
+                      <X size={10} weight="bold" />
                     </button>
                   </span>
                 ))}
@@ -143,22 +140,22 @@ export function CreateEventModal({ onCreate, onClose, creating, defaultStart }: 
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description (optional)"
             rows={3}
-            className="resize-none rounded-lg border border-zinc-800 bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-indigo-600"
+            className="resize-none rounded-xl border border-white/[0.05] bg-[#020206]/85 px-3.5 py-2.5 text-xs font-mono text-zinc-250 outline-none placeholder:text-zinc-700 focus:border-amber-500/40"
           />
         </div>
 
-        <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
+        <div className="flex items-center justify-between border-t border-white/[0.04] px-4.5 py-3.5 bg-zinc-950/40">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+            className="rounded-xl border border-white/[0.06] bg-white/[0.01] hover:border-red-500/30 hover:bg-red-500/5 px-4.5 py-2 text-xs font-mono font-bold text-zinc-400 hover:text-red-400 transition-all cursor-pointer"
           >
             Discard
           </button>
           <button
             type="submit"
             disabled={!title.trim() || !start || !end || attendees.length === 0 || creating}
-            className="rounded-lg bg-indigo-600 px-5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-40"
+            className="rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold px-6 py-2.5 text-xs font-mono transition-all hover:scale-[1.01] active:scale-95 shadow-md shadow-amber-500/10 cursor-pointer disabled:opacity-45 disabled:pointer-events-none"
           >
             {creating ? "Creating..." : "Create Event"}
           </button>
