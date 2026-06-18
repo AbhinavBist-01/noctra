@@ -182,9 +182,6 @@ function NoctraLogo({ className = "h-8" }: { className?: string }) {
 const workspaceTools = [
   { id: 1, name: "Gmail", image: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg" },
   { id: 2, name: "Google Calendar", image: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" },
-  { id: 3, name: "Slack", image: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg" },
-  { id: 4, name: "Notion", image: "https://upload.wikimedia.org/wikipedia/commons/e/e9/Notion-logo.svg" },
-  { id: 5, name: "GitHub", image: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg" },
 ];
 
 export default function LandingPageClient() {
@@ -334,29 +331,16 @@ export default function LandingPageClient() {
           {/* Inner Ambient Glow behind text */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[300px] bg-amber-500/5 rounded-full blur-[110px] pointer-events-none" />
 
-          {/* Floating Connected Apps Indicator (ElasticStack) in top right corner */}
-          <div className="absolute top-4 right-6 hidden md:block">
-            <div className="flex flex-col items-end gap-1 select-none">
-              <span className="text-[8.5px] font-mono text-zinc-500 uppercase tracking-widest">Active Workspace Nodes</span>
-              <ElasticStack 
-                items={workspaceTools}
-                itemSize={28}
-                overlap={10}
-                pushForce={8}
-                className="py-1"
-              />
-            </div>
-          </div>
-
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-zinc-50 via-zinc-100 to-zinc-500 leading-tight max-w-2xl flex flex-col items-center">
-            <span>Your workspace,</span>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl leading-tight max-w-2xl flex flex-col items-center">
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-zinc-50 via-zinc-100 to-zinc-500">
+              Your workspace,
+            </span>
             <MorphText
               words={["RULED BY YOUR WORDS", "DRIVEN BY ACTIONS", "SYNCED WITH GMAIL", "AUTO-SCHEDULED"]}
               interval={2500}
-              fontSize="clamp(1.5rem, 5vw, 3rem)"
               fontFamily="inherit"
               className="mt-2"
-              textClassName="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 font-extrabold"
+              textClassName="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600"
             />
           </h1>
 
@@ -380,6 +364,20 @@ export default function LandingPageClient() {
             </a>
           </div>
         </motion.div>
+      </div>
+
+      {/* Floating Connected Apps Indicator (ElasticStack) below Hero, aligned to the right */}
+      <div className="relative z-10 max-w-4xl mx-auto px-6 mb-4 flex justify-end w-full">
+        <div className="flex items-center gap-3 bg-zinc-950/40 border border-white/[0.04] rounded-full px-4 py-1.5 backdrop-blur-md shadow-lg select-none">
+          <span className="text-[8.5px] font-mono text-zinc-500 uppercase tracking-widest">Workspace Nodes</span>
+          <ElasticStack 
+            items={workspaceTools}
+            itemSize={24}
+            overlap={8}
+            pushForce={6}
+            className="py-0.5"
+          />
+        </div>
       </div>
 
       {/* Main Interactive Sandbox Terminal (Centered, dials removed per request) */}
@@ -779,48 +777,7 @@ export default function LandingPageClient() {
         <AgentBentoGrid />
       </section>
 
-      {/* Testimonials */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/[0.03]">
-        <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
-          <h2 className="text-xs font-mono text-amber-500 uppercase tracking-widest font-bold">Feedback</h2>
-          <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Loved by keyboard power-users</h3>
-          <p className="text-zinc-500 text-sm">Hear what developers and designers are saying about Noctra.</p>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="glass-panel p-8 rounded-2xl border border-white/[0.03] flex flex-col gap-6 relative">
-            <div className="text-amber-500 opacity-10 absolute top-4 right-6 text-6xl font-serif select-none pointer-events-none">&ldquo;</div>
-            <p className="text-sm font-mono text-zinc-300 relative z-10 leading-relaxed">
-              Noctra completely changed how I manage meetings and drafts. It takes 5 seconds to write a quick sentence and have a calendar event staged with client details. It feels like magic.
-            </p>
-            <div className="flex items-center gap-3 mt-auto border-t border-white/[0.03] pt-4">
-              <div className="h-8 w-8 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 font-mono text-xs font-bold">
-                JD
-              </div>
-              <div>
-                <div className="text-xs font-bold text-zinc-200">Jason Drake</div>
-                <div className="text-[10px] font-mono text-zinc-500">Lead Frontend Engineer at Vercel Labs</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-panel p-8 rounded-2xl border border-white/[0.03] flex flex-col gap-6 relative">
-            <div className="text-amber-500 opacity-10 absolute top-4 right-6 text-6xl font-serif select-none pointer-events-none">&ldquo;</div>
-            <p className="text-sm font-mono text-zinc-300 relative z-10 leading-relaxed">
-              I love the tactile visual dark design. The layout is extremely clean and keyboard-accessible. Plus, the bat-winged dark aesthetics look absolutely stunning at night.
-            </p>
-            <div className="flex items-center gap-3 mt-auto border-t border-white/[0.03] pt-4">
-              <div className="h-8 w-8 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 font-mono text-xs font-bold">
-                SH
-              </div>
-              <div>
-                <div className="text-xs font-bold text-zinc-200">Sarah Huang</div>
-                <div className="text-[10px] font-mono text-zinc-500">Design Engineer at Supabase</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Multi-Column Footer */}
       <footer className="relative z-10 border-t border-white/[0.03] bg-zinc-950/80 backdrop-blur-md pt-16 pb-12 px-6">
@@ -892,13 +849,13 @@ export default function LandingPageClient() {
             <a href="#" className="hover:text-zinc-400 transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-zinc-400 transition-colors">Terms of Service</a>
             <div className="flex gap-3 text-zinc-500 pl-4 border-l border-zinc-800">
-              <a href="#" aria-label="GitHub" className="hover:text-amber-500 transition-colors">
+              <a href="https://github.com/AbhinavBist-01" target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="hover:text-amber-500 transition-colors">
                 <GithubLogo size={16} />
               </a>
-              <a href="#" aria-label="Twitter" className="hover:text-amber-500 transition-colors">
+              <a href="https://x.com/abhinav1_twt" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="hover:text-amber-500 transition-colors">
                 <TwitterLogo size={16} />
               </a>
-              <a href="#" aria-label="LinkedIn" className="hover:text-amber-500 transition-colors">
+              <a href="https://www.linkedin.com/in/abhinavsingh015" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="hover:text-amber-500 transition-colors">
                 <LinkedinLogo size={16} />
               </a>
             </div>

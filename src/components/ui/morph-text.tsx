@@ -22,7 +22,7 @@ export interface MorphTextProps {
   subtext?: string;
   /**
    * Font size passed as a CSS value (e.g. "clamp(3rem, 15vw, 10rem)").
-   * Defaults to a fluid clamp that scales with the viewport.
+   * If omitted, the font size will be controlled via Tailwind classes (like text-3xl).
    */
   fontSize?: string;
   /**
@@ -43,7 +43,7 @@ export function MorphText({
   words = ["CREATE", "DESIGN", "DEVELOP"],
   interval = 3000,
   subtext,
-  fontSize = "clamp(3rem, 15vw, 10rem)",
+  fontSize,
   fontFamily = '"Space Grotesk", sans-serif',
   className,
   textClassName,
@@ -53,8 +53,45 @@ export function MorphText({
   const uid = useId().replace(/:/g, "");
   const filterId = `morph-threshold-${uid}`;
 
-  const totalDuration = (interval / 1000) * words.length; // seconds
+  const numWords = words.length || 1;
+  const totalDuration = (interval / 1000) * numWords; // seconds
   const wordDuration = interval / 1000;
+
+  // Calculate dynamic rotation percentages to avoid text superimposition/overlap
+  const P = 100 / numWords;
+  const visibleStart = P * 0.15;
+  const visibleEnd = P * 0.85;
+  const transOut = P;
+
+  const keyframesName = `morph-word-rotate-${uid}`;
+  const keyframesStyle = `
+    @keyframes ${keyframesName} {
+      0% {
+        opacity: 0;
+        filter: blur(10px);
+        transform: translate(-50%, -50%) scale(0.9);
+      }
+      ${visibleStart}% {
+        opacity: 1;
+        filter: blur(0px);
+        transform: translate(-50%, -50%) scale(1);
+      }
+      ${visibleEnd}% {
+        opacity: 1;
+        filter: blur(0px);
+        transform: translate(-50%, -50%) scale(1);
+      }
+      ${transOut}%, 100% {
+        opacity: 0;
+        filter: blur(10px);
+        transform: translate(-50%, -50%) scale(1.1);
+      }
+    }
+    @keyframes morph-fade-up-${uid} {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  `;
 
   // Build per-word keyframe + delay styles
   const wordStyles = words.map((_, i) => ({
@@ -62,8 +99,11 @@ export function MorphText({
     animationDuration: `${totalDuration}s`,
   }));
 
+  // Dynamic min-width to accommodate the longest word/phrase
+  const maxWordLength = Math.max(...words.map((w) => w.length), 14);
+
   return (
-    <div className={cn("morph-text-root relative flex flex-col items-center", className)}>
+    <span className={cn("morph-text-root relative inline-flex flex-col items-center", className)}>
       {/* ── Threshold SVG filter (hidden) ─────────────────────────── */}
       <svg
         aria-hidden="true"
@@ -84,8 +124,8 @@ export function MorphText({
       </svg>
 
       {/* ── Morphing word container ────────────────────────────────── */}
-      <div
-        className={cn("morph-text-container relative select-none", textClassName)}
+      <span
+        className="morph-text-container relative select-none inline-block"
         style={{
           fontSize,
           fontWeight: 700,
@@ -94,21 +134,21 @@ export function MorphText({
         }}
       >
         {/* word rotator */}
-        <div
-          className="morph-word-rotator relative flex items-center justify-center"
-          style={{ height: "1.2em", minWidth: "14ch" }}
+        <span
+          className="morph-word-rotator relative inline-flex items-center justify-center"
+          style={{ height: "1.2em", minWidth: `${maxWordLength}ch` }}
         >
           {words.map((word, i) => (
             <span
               key={`${word}-${i}`}
-              className="morph-word absolute"
+              className={cn("morph-word absolute text-transparent bg-clip-text inline-block", textClassName)}
               style={{
                 top: "50%",
                 left: "50%",
                 transform: "translate(-50%, -50%)",
                 opacity: 0,
                 whiteSpace: "nowrap",
-                animationName: "morph-word-rotate",
+                animationName: keyframesName,
                 animationTimingFunction: "ease-in-out",
                 animationIterationCount: "infinite",
                 animationFillMode: "both",
@@ -118,63 +158,33 @@ export function MorphText({
               {word}
             </span>
           ))}
-        </div>
-      </div>
+        </span>
+      </span>
 
       {/* ── Optional subtext ──────────────────────────────────────── */}
       {subtext && (
-        <p
+        <span
           className={cn(
-            "morph-subtext mt-8 uppercase tracking-[0.2em] text-[#888]",
+            "morph-subtext mt-8 uppercase tracking-[0.2em] text-[#888] block",
             subtextClassName
           )}
           style={{
             fontSize: "1.2rem",
             opacity: 0,
-            animation: "morph-fade-up 1s ease-out 1s forwards",
+            animation: `morph-fade-up-${uid} 1s ease-out 1s forwards`,
             fontFamily,
           }}
         >
           {subtext}
-        </p>
+        </span>
       )}
 
       {/* ── Scoped keyframes ──────────────────────────────────────── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
-
-        @keyframes morph-word-rotate {
-          0% {
-            opacity: 0;
-            filter: blur(20px);
-            transform: translate(-50%, -50%) scale(0.8);
-          }
-          5% {
-            opacity: 0.5;
-            filter: blur(10px);
-          }
-          15%, 35% {
-            opacity: 1;
-            filter: blur(0px);
-            transform: translate(-50%, -50%) scale(1);
-          }
-          45% {
-            opacity: 0.5;
-            filter: blur(10px);
-          }
-          50%, 100% {
-            opacity: 0;
-            filter: blur(20px);
-            transform: translate(-50%, -50%) scale(1.2);
-          }
-        }
-
-        @keyframes morph-fade-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        ${keyframesStyle}
       `}</style>
-    </div>
+    </span>
   );
 }
 
