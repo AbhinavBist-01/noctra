@@ -21,16 +21,6 @@ const fetchFullMessage = async (tenant: any, partial: any) => {
   const data = partial.data ?? partial;
   if (data.payload?.headers) return data;
 
-  // Log the first message's shape for debugging
-  if (!(globalThis as any).__gmailDebugLogged) {
-    (globalThis as any).__gmailDebugLogged = true;
-    console.log("[DEBUG] partial keys:", Object.keys(partial));
-    console.log("[DEBUG] partial.data keys:", data ? Object.keys(data) : "no data");
-    console.log("[DEBUG] partial snippet:", data?.snippet);
-    console.log("[DEBUG] partial.from:", data?.from);
-    console.log("[DEBUG] partial.payload:", data?.payload ? "exists" : "missing");
-  }
-
   try {
     const cached = await tenant.gmail.db.messages.findByEntityId(id);
     const full = cached?.data ?? cached;
@@ -181,7 +171,16 @@ export const getGmailDrafts = async () => {
     const raw = await tenant.gmail.db.drafts.list({} as any);
     const drafts = Array.isArray(raw) ? raw : [];
     return {
-      drafts: drafts.map((d: any) => mapGmailMessageSummary(d.message ?? d)),
+      drafts: drafts.map((d: any) => {
+        // Draft rows may nest the message at different levels depending on how it was stored
+        // Try: d.data.message -> d.data -> d.message -> d (bare message)
+        const msg =
+          d?.data?.message ??
+          d?.data ??
+          d?.message ??
+          d;
+        return mapGmailMessageSummary(msg);
+      }),
     };
   } catch (error) {
     throw new AppError(

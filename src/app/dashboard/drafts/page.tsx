@@ -96,12 +96,12 @@ export default function DraftsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const fetchDrafts = useCallback(async (showLoader = true, refresh = true) => {
+  const fetchDrafts = useCallback(async (showLoader = true, doRefresh = false) => {
     if (showLoader) setLoading(true);
     setError(null);
     try {
-      if (refresh) {
-        // First refresh cache
+      if (doRefresh) {
+        // Only refresh server-side cache when explicitly requested
         await apiFetch("/api/gmail/refresh", { method: "POST" });
       }
       const res = await apiFetch("/api/gmail/drafts");
@@ -133,7 +133,7 @@ export default function DraftsPage() {
     fetchDrafts();
   }, [fetchDrafts]);
 
-  // Auto-sync every 30s
+  // Auto-sync every 30s (no refresh, just re-read DB cache)
   useEffect(() => {
     const interval = setInterval(() => fetchDrafts(false, false), 30000);
     return () => clearInterval(interval);
@@ -156,7 +156,7 @@ export default function DraftsPage() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchDrafts();
+    fetchDrafts(true, true);
   };
 
   const handleSendDraft = async (draftId: string) => {

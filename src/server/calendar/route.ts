@@ -60,3 +60,13 @@ calendarRoute.post("/invites", async (req, res, next) => {
     next(error);
   }
 });
+
+// GET /invites — returns upcoming calendar events as invite references
+calendarRoute.get("/invites", async (_req, res, next) => {
+  try {
+    const result = await getCalendarEvents({});
+    res.status(200).json({ data: result });
+  } catch (error) {
+    next(error);
+  }
+});

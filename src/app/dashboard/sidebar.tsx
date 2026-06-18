@@ -373,9 +373,9 @@ export function DashboardSidebar() {
                     {/* Settings links */}
                     <div className="flex flex-col py-1.5 px-1.5 gap-0.5">
                       {[
-                        { icon: <UserCircle size={14} />, label: "Profile", href: "/dashboard/profile" },
-                        { icon: <Bell size={14} />, label: "Notifications", href: "/dashboard/notifications" },
-                        { icon: <Palette size={14} />, label: "Appearance", href: "/dashboard/appearance" },
+                        { icon: <UserCircle size={14} />, label: "Profile", href: "/dashboard/settings" },
+                        { icon: <Bell size={14} />, label: "Notifications", href: "/dashboard/settings" },
+                        { icon: <Palette size={14} />, label: "Appearance", href: "/dashboard/settings" },
                         { icon: <Gear size={14} />, label: "Settings", href: "/dashboard/settings" },
                       ].map((item) => (
                         <Link

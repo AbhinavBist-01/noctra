@@ -88,12 +88,6 @@ const getReceivedAt = (message: RawGmailMessage) => {
 export const mapGmailMessageSummary = (
   message: RawGmailMessage,
 ): GmailMessageSummary => {
-  if (!(globalThis as any).__gmailMapperDebug) {
-    (globalThis as any).__gmailMapperDebug = true;
-    console.log("[DEBUG MAPPER] message keys:", Object.keys(message));
-    console.log("[DEBUG MAPPER] message:", JSON.stringify(message, null, 2)?.slice(0, 800));
-  }
-
   const from = getFrom(message);
   const subject = getSubject(message);
   const snippet = message.snippet;

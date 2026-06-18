@@ -96,12 +96,12 @@ export default function SentPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const fetchSent = useCallback(async (showLoader = true, refresh = true) => {
+  const fetchSent = useCallback(async (showLoader = true, doRefresh = false) => {
     if (showLoader) setLoading(true);
     setError(null);
     try {
-      if (refresh) {
-        // Refresh server-side cache first
+      if (doRefresh) {
+        // Only refresh server-side cache when explicitly requested
         await apiFetch("/api/gmail/refresh", { method: "POST" });
       }
       const res = await apiFetch("/api/gmail/messages?limit=50");
@@ -133,7 +133,7 @@ export default function SentPage() {
     fetchSent();
   }, [fetchSent]);
 
-  // Auto-sync every 30s
+  // Auto-sync every 30s (no refresh, just re-read DB cache)
   useEffect(() => {
     const interval = setInterval(() => fetchSent(false, false), 30000);
     return () => clearInterval(interval);
@@ -155,7 +155,7 @@ export default function SentPage() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchSent();
+    fetchSent(true, true);
   };
 
   const filtered = searchQuery
