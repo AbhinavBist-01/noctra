@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="/noctra_logo.png" alt="Noctra Logo" width="380" style="margin-bottom: 20px;" />
+  <img src="./public/noctra_logo.png" alt="Noctra Logo" width="380" style="margin-bottom: 20px;" />
   <p align="center">
     <strong>Your workspace, ruled by your words.</strong><br />
     An AI-powered, naturally commandable, nocturnal bat-themed email & calendar client dashboard.
