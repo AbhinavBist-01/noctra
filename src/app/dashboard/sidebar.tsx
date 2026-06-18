@@ -379,7 +379,7 @@ export function DashboardSidebar() {
                         { icon: <Gear size={14} />, label: "Settings", href: "/dashboard/settings" },
                       ].map((item) => (
                         <Link
-                          key={item.href}
+                          key={item.label}
                           href={item.href}
                           onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[11px] font-mono font-semibold text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] transition-all group"

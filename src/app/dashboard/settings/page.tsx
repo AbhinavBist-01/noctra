@@ -49,6 +49,7 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   useEffect(() => {
     authClient.getSession().then((res) => {
@@ -141,10 +142,11 @@ export default function SettingsPage() {
               <div className="flex flex-col gap-5">
                 {/* User profile row */}
                 <div className="flex items-center gap-4">
-                  {session?.user?.image ? (
+                  {session?.user?.image && !avatarError ? (
                     <img
                       src={session.user.image}
                       alt="avatar"
+                      onError={() => setAvatarError(true)}
                       className="h-12 w-12 rounded-xl border border-white/[0.06] object-cover"
                     />
                   ) : (
