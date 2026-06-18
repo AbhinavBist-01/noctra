@@ -23,6 +23,10 @@ import {
   ShieldCheck
 } from "@phosphor-icons/react";
 import AnimatedRays from "@/components/ui/animated-rays";
+import MorphText from "@/components/ui/morph-text";
+import ElasticStack from "@/components/ui/elastic-stack";
+import AgentBentoGrid from "@/components/ui/agent-bento-grid";
+import FlipFadeText from "@/components/ui/flip-fade-text";
 
 interface EmailDraftResult {
   type: "email_draft";
@@ -175,6 +179,14 @@ function NoctraLogo({ className = "h-8" }: { className?: string }) {
   );
 }
 
+const workspaceTools = [
+  { id: 1, name: "Gmail", image: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg" },
+  { id: 2, name: "Google Calendar", image: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" },
+  { id: 3, name: "Slack", image: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg" },
+  { id: 4, name: "Notion", image: "https://upload.wikimedia.org/wikipedia/commons/e/e9/Notion-logo.svg" },
+  { id: 5, name: "GitHub", image: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg" },
+];
+
 export default function LandingPageClient() {
   const [activePreset, setActivePreset] = useState<number | null>(null);
   const [inputText, setInputText] = useState("");
@@ -322,9 +334,30 @@ export default function LandingPageClient() {
           {/* Inner Ambient Glow behind text */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[300px] bg-amber-500/5 rounded-full blur-[110px] pointer-events-none" />
 
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-zinc-50 via-zinc-100 to-zinc-500 leading-tight max-w-2xl">
-            Your workspace, <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600">ruled by your words.</span>
+          {/* Floating Connected Apps Indicator (ElasticStack) in top right corner */}
+          <div className="absolute top-4 right-6 hidden md:block">
+            <div className="flex flex-col items-end gap-1 select-none">
+              <span className="text-[8.5px] font-mono text-zinc-500 uppercase tracking-widest">Active Workspace Nodes</span>
+              <ElasticStack 
+                items={workspaceTools}
+                itemSize={28}
+                overlap={10}
+                pushForce={8}
+                className="py-1"
+              />
+            </div>
+          </div>
+
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-zinc-50 via-zinc-100 to-zinc-500 leading-tight max-w-2xl flex flex-col items-center">
+            <span>Your workspace,</span>
+            <MorphText
+              words={["RULED BY YOUR WORDS", "DRIVEN BY ACTIONS", "SYNCED WITH GMAIL", "AUTO-SCHEDULED"]}
+              interval={2500}
+              fontSize="clamp(1.5rem, 5vw, 3rem)"
+              fontFamily="inherit"
+              className="mt-2"
+              textClassName="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-600 font-extrabold"
+            />
           </h1>
 
           <p className="text-zinc-400 text-base sm:text-lg leading-relaxed max-w-xl">
@@ -459,12 +492,17 @@ export default function LandingPageClient() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex-1 flex flex-col items-center justify-center text-center p-8 gap-3"
+                  className="flex-1 flex flex-col items-center justify-center text-center p-8 gap-4"
                 >
-                  <div className="relative h-8 w-8 flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border-2 border-amber-500/20 border-t-amber-500 animate-spin" />
-                  </div>
-                  <span className="text-xs text-zinc-500 font-mono">Mapping OAuth nodes...</span>
+                  <FlipFadeText 
+                    words={["MAPPING OAUTH", "RESOLVING LABELS", "PARSING VARIABLES", "STAGING PAYLOAD"]}
+                    interval={1200}
+                    className="min-h-[60px]"
+                    textClassName="text-xl md:text-2xl font-mono tracking-wider text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]"
+                  />
+                  <span className="text-[10px] text-zinc-550 font-mono uppercase tracking-[0.2em] animate-pulse">
+                    Synthesizing JSON commands
+                  </span>
                 </motion.div>
               )}
 
@@ -738,85 +776,7 @@ export default function LandingPageClient() {
           <p className="text-zinc-500 text-sm">No complex dropdowns or calendar picking. Type, review, and confirm.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Feature 1 */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.03] hover:border-amber-500/25 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-amber-500/[0.01] flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-              <Terminal size={20} />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Semantic Parsing</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Lightweight parser agents compile plain-text sentences into structured JSON parameters, identifying recipients, dates, and bodies in milliseconds.
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 2 */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.03] hover:border-amber-500/25 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-amber-500/[0.01] flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-              <CalendarBlank size={20} />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Calendar Mapping</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Resolves smart temporal references like &apos;next Tuesday at 2 PM&apos; or &apos;tomorrow morning&apos; and extracts invitees into calendar invites.
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 3 */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.03] hover:border-amber-500/25 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-amber-500/[0.01] flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-              <ArrowsLeftRight size={20} />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Compound Chains</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Run multi-app actions sequentially. Send a confirmation email and book a calendar event in a single command chain.
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 4 */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.03] hover:border-amber-500/25 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-amber-500/[0.01] flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Lightning size={20} />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Sub-100ms Latency</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Engineered for speed. Previews and autocompletes are evaluated on the edge to keep your keyboard navigation uninterrupted.
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 5 */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.03] hover:border-amber-500/25 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-amber-500/[0.01] flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-              <Sliders size={20} />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Tactile Micro-interactions</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Beautiful glass cards with progressive height elevations, custom backlit golden amber logo glows, and spring physics.
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 6 */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/[0.03] hover:border-amber-500/25 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-amber-500/[0.01] flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Privacy First</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Transparent data handling. Your credentials are encrypted locally, and permissions are restricted solely to required Google scopes.
-              </p>
-            </div>
-          </div>
-        </div>
+        <AgentBentoGrid />
       </section>
 
       {/* Testimonials */}
