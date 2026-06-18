@@ -96,12 +96,14 @@ export default function DraftsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const fetchDrafts = useCallback(async (showLoader = true) => {
+  const fetchDrafts = useCallback(async (showLoader = true, refresh = true) => {
     if (showLoader) setLoading(true);
     setError(null);
     try {
-      // First refresh cache
-      await apiFetch("/api/gmail/refresh", { method: "POST" });
+      if (refresh) {
+        // First refresh cache
+        await apiFetch("/api/gmail/refresh", { method: "POST" });
+      }
       const res = await apiFetch("/api/gmail/drafts");
       if (!res.ok) {
         const json = await res.json().catch(() => null);
@@ -129,6 +131,12 @@ export default function DraftsPage() {
 
   useEffect(() => {
     fetchDrafts();
+  }, [fetchDrafts]);
+
+  // Auto-sync every 30s
+  useEffect(() => {
+    const interval = setInterval(() => fetchDrafts(false, false), 30000);
+    return () => clearInterval(interval);
   }, [fetchDrafts]);
 
   // Fetch full details of the draft message

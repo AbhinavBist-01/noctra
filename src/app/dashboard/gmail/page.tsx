@@ -174,7 +174,6 @@ export default function GmailPage() {
   // Silent background sync (no loading spinner)
   const silentSync = useCallback(async () => {
     try {
-      await apiFetch("/api/gmail/refresh", { method: "POST" });
       const res = await apiFetch("/api/gmail/messages?limit=40");
       if (!res.ok) return;
       const json = await res.json();

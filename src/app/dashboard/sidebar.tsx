@@ -38,18 +38,16 @@ type NavSection = {
 
 const navSections: NavSection[] = [
   {
+    title: "Mail",
+    items: [
+      { href: "/dashboard/gmail", label: "Inbox", icon: <EnvelopeSimple size={18} />, id: "gmail", badge: "unread" },
+    ],
+  },
+  {
     title: "Workspace",
     items: [
       { href: "/dashboard/agent", label: "AI Agent", icon: <Robot size={18} />, id: "agent" },
       { href: "/dashboard/calendar", label: "Calendar", icon: <CalendarBlank size={18} />, id: "calendar" },
-    ],
-  },
-  {
-    title: "Mail",
-    items: [
-      { href: "/dashboard/gmail", label: "Inbox", icon: <EnvelopeSimple size={18} />, id: "gmail", badge: "unread" },
-      { href: "/dashboard/sent", label: "Sent", icon: <PaperPlaneTilt size={18} />, id: "sent" },
-      { href: "/dashboard/drafts", label: "Drafts", icon: <PencilSimpleLine size={18} />, id: "drafts" },
     ],
   },
 ];
@@ -106,7 +104,8 @@ export function DashboardSidebar() {
       if (mailRes.ok) {
         const mailJson = await mailRes.json();
         const msgs = mailJson.data?.messages ?? mailJson.data ?? [];
-        const unreads = msgs.filter((m: any) => !m.labels?.includes("READ") && !m.labels?.includes("SEEN")).length;
+        // FIX: Gmail uses "UNREAD" to denote unread messages
+        const unreads = msgs.filter((m: any) => m.labels?.includes("UNREAD")).length;
         setUnreadCount(unreads);
       }
 
@@ -134,6 +133,29 @@ export function DashboardSidebar() {
     fetchSidebarData();
     const interval = setInterval(fetchSidebarData, 15000);
     return () => clearInterval(interval);
+  }, [fetchSidebarData]);
+
+  // Global background auto-sync triggered from the sidebar
+  useEffect(() => {
+    const triggerBackgroundRefresh = async () => {
+      try {
+        await apiFetch("/api/gmail/refresh", { method: "POST" });
+        // Immediately fetch the fresh unread counts after a successful refresh
+        fetchSidebarData();
+      } catch {
+        // silent fail
+      }
+    };
+    
+    // Trigger an initial refresh 2 seconds after the dashboard mounts
+    const initialTimeout = setTimeout(triggerBackgroundRefresh, 2000);
+    
+    // Trigger refreshes every 45 seconds thereafter
+    const interval = setInterval(triggerBackgroundRefresh, 45000);
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, [fetchSidebarData]);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);

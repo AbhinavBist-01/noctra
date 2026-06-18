@@ -96,12 +96,14 @@ export default function SentPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const fetchSent = useCallback(async (showLoader = true) => {
+  const fetchSent = useCallback(async (showLoader = true, refresh = true) => {
     if (showLoader) setLoading(true);
     setError(null);
     try {
-      // Refresh server-side cache first
-      await apiFetch("/api/gmail/refresh", { method: "POST" });
+      if (refresh) {
+        // Refresh server-side cache first
+        await apiFetch("/api/gmail/refresh", { method: "POST" });
+      }
       const res = await apiFetch("/api/gmail/messages?limit=50");
       if (!res.ok) {
         const json = await res.json().catch(() => null);
@@ -133,7 +135,7 @@ export default function SentPage() {
 
   // Auto-sync every 30s
   useEffect(() => {
-    const interval = setInterval(() => fetchSent(false), 30000);
+    const interval = setInterval(() => fetchSent(false, false), 30000);
     return () => clearInterval(interval);
   }, [fetchSent]);
 

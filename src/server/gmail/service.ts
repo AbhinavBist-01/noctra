@@ -52,23 +52,18 @@ export const getGmailMessages = async (input: {
     const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
     const limit = input.limit ?? 20;
 
-    let raw;
+    let allMessages;
     if (input.query) {
-      raw = await tenant.gmail.api.messages.get({ query: input.query } as any);
+      const raw = await tenant.gmail.api.messages.get({ query: input.query } as any);
+      allMessages = Array.isArray(raw) ? raw : ((raw as any)?.messages ?? []);
+      allMessages = await Promise.all(allMessages.map((m: any) => fetchFullMessage(tenant, m)));
     } else {
-      raw = await tenant.gmail.api.messages.list({ maxResults: 50 } as any);
+      // Direct list from local database cache (instant)
+      const raw = await tenant.gmail.db.messages.list({} as any);
+      const list = Array.isArray(raw) ? raw : [];
+      allMessages = list.map((m: any) => m.data ?? m);
     }
 
-    // Log the first time
-    if (!(globalThis as any).__gmailListLogged) {
-      (globalThis as any).__gmailListLogged = true;
-      console.log("[DEBUG] list() raw type:", typeof raw);
-      console.log("[DEBUG] list() raw keys:", raw ? Object.keys(raw as any) : "null");
-      console.log("[DEBUG] list() raw:", JSON.stringify(raw, null, 2)?.slice(0, 500));
-    }
-
-    let allMessages = Array.isArray(raw) ? raw : ((raw as any)?.messages ?? []);
-    allMessages = await Promise.all(allMessages.map((m: any) => fetchFullMessage(tenant, m)));
     const sorted = sortByInternalDateDesc(allMessages);
     const paged = sorted.slice(offset, offset + limit + 1);
     const hasMore = paged.length > limit;

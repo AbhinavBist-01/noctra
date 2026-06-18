@@ -254,7 +254,7 @@ export default function DashboardPage() {
             <h1 className="font-display bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-3xl md:text-4xl font-extrabold tracking-tight text-transparent mt-1">
               Welcome back, {session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User"}
             </h1>
-            <p className="mt-1.5 text-xs font-mono text-zinc-550 font-semibold tracking-wide">
+            <p suppressHydrationWarning className="mt-1.5 text-xs font-mono text-zinc-550 font-semibold tracking-wide">
               {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
