@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./public/noctra_logo.png" alt="Noctra Logo" width="380" style="margin-bottom: 20px;" />
+  <img src="./public/logo.png" alt="Noctra Logo" width="380" style="margin-bottom: 20px;" />
   <p align="center">
     <strong>Your workspace, ruled by your words.</strong><br />
     An AI-powered, naturally commandable, nocturnal bat-themed email & calendar client dashboard.
@@ -23,26 +23,26 @@
 
 ## 🌟 Core Features
 
-*   **🎙️ AI Agent Command Bar**: Parse semantic natural language inputs into structured API execution payloads. Supports chained instructions (e.g., *"Send follow-up to client@corp.com. Invite them to sync meeting this Friday at 10 AM"*).
-*   **📬 Real-Time Gmail Cache**: Auto-syncs your Inbox in the background, caching messages, threads, and drafts locally for instant loading and offline queryability.
-*   **📅 Dynamic Calendar Agenda**: Interactive calendar interface showing today's events, meeting agendas, and inline scheduling.
-*   **🤖 Smart Reply Assistant**: Instantly generate AI-powered response suggestions (e.g. *Acknowledge*, *Decline*, *Need More Time*) inside email threads.
-*   **📊 Bento Pipeline Monitor**: A premium features grid displaying live node-graph execution pipelines, token monitors, live activity logs, and tool latency metrics.
-*   **🎨 Premium Dark Aesthetics**: Custom backlit bat-winged branding, morphing taglines, and glassmorphic UI panels with amber-glowing borders.
+- **🎙️ AI Agent Command Bar**: Parse semantic natural language inputs into structured API execution payloads. Supports chained instructions (e.g., _"Send follow-up to client@corp.com. Invite them to sync meeting this Friday at 10 AM"_).
+- **📬 Real-Time Gmail Cache**: Auto-syncs your Inbox in the background, caching messages, threads, and drafts locally for instant loading and offline queryability.
+- **📅 Dynamic Calendar Agenda**: Interactive calendar interface showing today's events, meeting agendas, and inline scheduling.
+- **🤖 Smart Reply Assistant**: Instantly generate AI-powered response suggestions (e.g. _Acknowledge_, _Decline_, _Need More Time_) inside email threads.
+- **📊 Bento Pipeline Monitor**: A premium features grid displaying live node-graph execution pipelines, token monitors, live activity logs, and tool latency metrics.
+- **🎨 Premium Dark Aesthetics**: Custom backlit bat-winged branding, morphing taglines, and glassmorphic UI panels with amber-glowing borders.
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Layer | Technologies | Purpose |
-| :--- | :--- | :--- |
-| **Frontend Core** | React 19, Next.js 15 (App Router) | Client application and static/dynamic rendering. |
-| **Backend Core** | Express.js 5, Node.js | Webhook receivers, background jobs, API proxy. |
-| **Styling & Motion** | Tailwind CSS, Framer Motion | Dark-glass themes and spring-physics animations. |
-| **Database & ORM** | PostgreSQL, Drizzle ORM | Relational tables for sessions, accounts, messages. |
-| **Authentication** | Better Auth | Google OAuth provider & session cookie management. |
-| **APIs & SDKs** | Corsair SDK, Gmail API, Calendar API | Secure connection adapters for Google Workspace. |
-| **AI Processing** | OpenAI API (GPT Models) | Semantic command parsing & smart email summaries. |
+| Layer                | Technologies                         | Purpose                                             |
+| :------------------- | :----------------------------------- | :-------------------------------------------------- |
+| **Frontend Core**    | React 19, Next.js 15 (App Router)    | Client application and static/dynamic rendering.    |
+| **Backend Core**     | Express.js 5, Node.js                | Webhook receivers, background jobs, API proxy.      |
+| **Styling & Motion** | Tailwind CSS, Framer Motion          | Dark-glass themes and spring-physics animations.    |
+| **Database & ORM**   | PostgreSQL, Drizzle ORM              | Relational tables for sessions, accounts, messages. |
+| **Authentication**   | Better Auth                          | Google OAuth provider & session cookie management.  |
+| **APIs & SDKs**      | Corsair SDK, Gmail API, Calendar API | Secure connection adapters for Google Workspace.    |
+| **AI Processing**    | OpenAI API (GPT Models)              | Semantic command parsing & smart email summaries.   |
 
 ---
 
@@ -66,11 +66,13 @@ graph TD
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   Node.js (v18 or higher)
-*   pnpm (v9 or higher)
-*   PostgreSQL database instance running locally or hosted
+
+- Node.js (v18 or higher)
+- pnpm (v9 or higher)
+- PostgreSQL database instance running locally or hosted
 
 ### 1. Clone & Install Dependencies
+
 ```bash
 git clone https://github.com/your-username/noctra.git
 cd noctra
@@ -78,7 +80,9 @@ pnpm install
 ```
 
 ### 2. Configure Environment Variables
+
 Create a `.env` file in the root directory and specify the following keys:
+
 ```env
 # Server Configurations
 EXPRESS_PORT=4000
@@ -98,16 +102,21 @@ CORSAIR_TENANT_ID="dev"
 ```
 
 ### 3. Push Database Schema
+
 Ensure Postgres is running and push Drizzle schemas to create your tables:
+
 ```bash
 pnpm run db:push
 ```
 
 ### 4. Start Development Servers
+
 Run Next.js and the Express backend concurrently in development mode:
+
 ```bash
 pnpm run dev:all
 ```
+
 Your Next.js app will be active on [http://localhost:3000](http://localhost:3000) and the Express server will proxy requests on [http://localhost:4000](http://localhost:4000).
 
 ---
@@ -118,12 +127,12 @@ For Gmail and Calendar integrations to communicate with Google, configure your *
 
 1.  **Authorize Scopes**:
     Add the following scopes to your OAuth Consent screen configurations:
-    *   `https://www.googleapis.com/auth/gmail.readonly`
-    *   `https://www.googleapis.com/auth/gmail.modify`
-    *   `https://www.googleapis.com/auth/gmail.send`
-    *   `https://www.googleapis.com/auth/gmail.compose`
-    *   `https://www.googleapis.com/auth/calendar`
-    *   `https://www.googleapis.com/auth/calendar.events`
+    - `https://www.googleapis.com/auth/gmail.readonly`
+    - `https://www.googleapis.com/auth/gmail.modify`
+    - `https://www.googleapis.com/auth/gmail.send`
+    - `https://www.googleapis.com/auth/gmail.compose`
+    - `https://www.googleapis.com/auth/calendar`
+    - `https://www.googleapis.com/auth/calendar.events`
 2.  **Add Test Users**:
     Add your test Google email addresses under the **Test users** section on the OAuth consent settings page.
 3.  **App Consent**:
@@ -134,8 +143,10 @@ For Gmail and Calendar integrations to communicate with Google, configure your *
 ## 📦 Production Builds
 
 To package and compile the project for production, run:
+
 ```bash
 pnpm run build
 pnpm run start
 ```
+
 This cleans the compilation cache, bundles server and client assets, and optimizes route pre-rendering.
