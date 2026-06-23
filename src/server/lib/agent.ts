@@ -47,7 +47,7 @@ export async function agent(
   opts: AgentOptions = {},
 ): Promise<string> {
   const { client, isGemini } = getOpenAIClient();
-  const model = opts.model ?? (isGemini ? "gemini-1.5-flash" : "gpt-4o-mini");
+  const model = opts.model ?? (isGemini ? "gemini-3.5-flash" : "gpt-4o-mini");
 
   try {
     const response = await client.chat.completions.create({

@@ -280,7 +280,7 @@ export default function LandingPageClient() {
       <div 
         className={`w-full sticky top-0 z-50 transition-all duration-500 ease-in-out ${
           scrolled 
-            ? "py-3 bg-[#020206]/60 backdrop-blur-md border-b border-white/[0.01] shadow-lg shadow-black/10" 
+            ? "py-3 bg-[#020206]/40 backdrop-blur-lg border-b border-white/[0.02] shadow-lg shadow-black/40" 
             : "py-6 bg-transparent"
         }`}
       >
@@ -288,8 +288,8 @@ export default function LandingPageClient() {
           <header 
             className={`rounded-full px-6 flex items-center justify-between border backdrop-blur-md transition-all duration-500 ease-in-out ${
               scrolled 
-                ? "py-2.5 bg-zinc-950/90 border-amber-500/25 shadow-[0_0_25px_rgba(245,158,11,0.12)]" 
-                : "py-3.5 bg-[#020206]/60 border-white/[0.04] shadow-2xl shadow-black/80"
+                ? "py-2.5 bg-zinc-950/50 border-amber-500/30 shadow-[0_0_30px_rgba(245,158,11,0.18)]" 
+                : "py-3.5 bg-zinc-950/30 border-white/[0.04] shadow-2xl shadow-black/60"
             }`}
           >
             <Link href="/" className="outline-none">
