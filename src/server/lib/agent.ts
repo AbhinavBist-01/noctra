@@ -1,4 +1,5 @@
 import { OpenAI } from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant";
@@ -17,54 +18,91 @@ type AgentOptions = {
 };
 
 let openaiClient: OpenAI | null = null;
-let isGeminiMode = false;
+let geminiClient: GoogleGenAI | null = null;
 
-function getOpenAIClient(): { client: OpenAI; isGemini: boolean } {
-  if (!openaiClient) {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
+function getClient(): { 
+  openai?: OpenAI; 
+  gemini?: GoogleGenAI; 
+} {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (geminiKey) {
-      openaiClient = new OpenAI({
-        apiKey: geminiKey,
-        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-      });
-      isGeminiMode = true;
-      console.log("[agent] Initialized Gemini client via OpenAI compatibility layer");
-    } else if (openaiKey) {
-      openaiClient = new OpenAI({ apiKey: openaiKey });
-      isGeminiMode = false;
-      console.log("[agent] Initialized OpenAI client");
-    } else {
-      throw new Error("Neither GEMINI_API_KEY nor OPENAI_API_KEY is set");
+  if (geminiKey) {
+    if (!geminiClient) {
+      geminiClient = new GoogleGenAI({ apiKey: geminiKey });
+      console.log("[agent] Initialized native Google GenAI client");
     }
+    return { gemini: geminiClient };
+  } else if (openaiKey) {
+    if (!openaiClient) {
+      openaiClient = new OpenAI({ apiKey: openaiKey });
+      console.log("[agent] Initialized OpenAI client");
+    }
+    return { openai: openaiClient };
+  } else {
+    throw new Error("Neither GEMINI_API_KEY nor OPENAI_API_KEY is set");
   }
-  return { client: openaiClient, isGemini: isGeminiMode };
 }
 
 export async function agent(
   messages: AgentMessage[],
   opts: AgentOptions = {},
 ): Promise<string> {
-  const { client, isGemini } = getOpenAIClient();
-  const model = opts.model ?? (isGemini ? "gemini-3.5-flash" : "gpt-4o-mini");
+  const { openai, gemini } = getClient();
 
-  try {
-    const response = await client.chat.completions.create({
-      model,
-      max_tokens: opts.maxTokens ?? 500,
-      temperature: opts.temperature ?? 0.2,
-      messages: messages.map((m) => ({
-        role: m.role as "system" | "user" | "assistant",
-        content: m.content,
-      })),
-    });
+  if (gemini) {
+    try {
+      const systemInstructions = messages
+        .filter((m) => m.role === "system")
+        .map((m) => m.content)
+        .join("\n\n");
 
-    return (response.choices?.[0]?.message?.content ?? "").trim();
-  } catch (error) {
-    throw new Error(
-      `${isGemini ? "Gemini" : "OpenAI"} Agent error: ${error instanceof Error ? error.message : String(error)}`,
-    );
+      const contents = messages
+        .filter((m) => m.role !== "system")
+        .map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        }));
+
+      const model = opts.model ?? "gemini-2.5-flash";
+
+      const response = await gemini.models.generateContent({
+        model,
+        contents,
+        config: {
+          temperature: opts.temperature ?? 0.2,
+          maxOutputTokens: opts.maxTokens ?? 500,
+          systemInstruction: systemInstructions || undefined,
+        },
+      });
+
+      return (response.text ?? "").trim();
+    } catch (error) {
+      throw new Error(
+        `Gemini Agent error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  } else if (openai) {
+    try {
+      const model = opts.model ?? "gpt-4o-mini";
+      const response = await openai.chat.completions.create({
+        model,
+        max_tokens: opts.maxTokens ?? 500,
+        temperature: opts.temperature ?? 0.2,
+        messages: messages.map((m) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        })),
+      });
+
+      return (response.choices?.[0]?.message?.content ?? "").trim();
+    } catch (error) {
+      throw new Error(
+        `OpenAI Agent error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  } else {
+    throw new Error("No active LLM client configured");
   }
 }
 

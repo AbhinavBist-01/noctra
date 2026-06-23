@@ -156,19 +156,33 @@ export default function GmailPage() {
     setError(null);
     setNextCursor(undefined);
     try {
-      await apiFetch("/api/gmail/refresh", { method: "POST" });
-      const res = await apiFetch("/api/gmail/messages?limit=40");
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(json?.error?.message ?? `Server error: ${res.status}`);
-        return;
+      // 1. Fetch first 20 cached emails instantly to make UI load immediately
+      const resInitial = await apiFetch("/api/gmail/messages?limit=20");
+      if (resInitial.ok) {
+        const json = await resInitial.json();
+        const msgs: GmailMessage[] = json.data?.messages ?? json.data ?? [];
+        setMessages(sortByPriority(msgs));
+        setNextCursor(json.data?.nextCursor);
+        // Hide primary loader so user can interact with existing emails right away
+        setLoading(false);
       }
-      const json = await res.json();
-      const msgs: GmailMessage[] = json.data?.messages ?? json.data ?? [];
-      setMessages(sortByPriority(msgs));
-      setNextCursor(json.data?.nextCursor);
-    } catch { setError(`Could not connect to API at ${API}`); }
-    finally { setLoading(false); }
+
+      // 2. Sync with Google API in the background
+      await apiFetch("/api/gmail/refresh", { method: "POST" });
+
+      // 3. Load updated list and more emails (limit=50) in the background
+      const resFull = await apiFetch("/api/gmail/messages?limit=50");
+      if (resFull.ok) {
+        const json = await resFull.json();
+        const msgs: GmailMessage[] = json.data?.messages ?? json.data ?? [];
+        setMessages(sortByPriority(msgs));
+        setNextCursor(json.data?.nextCursor);
+      }
+    } catch {
+      setError(`Could not connect to API at ${API}`);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Silent background sync (no loading spinner)

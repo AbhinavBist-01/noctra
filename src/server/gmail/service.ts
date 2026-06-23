@@ -54,6 +54,16 @@ export const getGmailMessages = async (input: {
       allMessages = list.map((m: any) => m.data ?? m);
     }
 
+    // Deduplicate by message ID to prevent duplicate React keys
+    const seenIds = new Set<string>();
+    allMessages = allMessages.filter((m: any) => {
+      const id = m?.id;
+      if (!id) return true;
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+
     const sorted = sortByInternalDateDesc(allMessages);
     const paged = sorted.slice(offset, offset + limit + 1);
     const hasMore = paged.length > limit;
@@ -170,8 +180,20 @@ export const getGmailDrafts = async () => {
     const tenant = getTenant();
     const raw = await tenant.gmail.db.drafts.list({} as any);
     const drafts = Array.isArray(raw) ? raw : [];
+    
+    // Deduplicate drafts by message/draft ID
+    const seenIds = new Set<string>();
+    const uniqueDrafts = drafts.filter((d: any) => {
+      const msg = d?.data?.message ?? d?.data ?? d?.message ?? d;
+      const id = msg?.id;
+      if (!id) return true;
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+
     return {
-      drafts: drafts.map((d: any) => {
+      drafts: uniqueDrafts.map((d: any) => {
         // Draft rows may nest the message at different levels depending on how it was stored
         // Try: d.data.message -> d.data -> d.message -> d (bare message)
         const msg =

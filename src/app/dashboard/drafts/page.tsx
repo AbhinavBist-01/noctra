@@ -100,27 +100,43 @@ export default function DraftsPage() {
     if (showLoader) setLoading(true);
     setError(null);
     try {
+      // 1. Fetch cached drafts instantly
+      const resInitial = await apiFetch("/api/gmail/drafts");
+      if (resInitial.ok) {
+        const json = await resInitial.json();
+        const list: DraftMessage[] = json.data?.drafts ?? json.data ?? [];
+        
+        // Sort newest first
+        list.sort((a, b) => {
+          const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+          const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+          return db - da;
+        });
+        
+        setDrafts(list);
+        setLoading(false);
+      }
+
       if (doRefresh) {
         // Only refresh server-side cache when explicitly requested
         await apiFetch("/api/gmail/refresh", { method: "POST" });
       }
-      const res = await apiFetch("/api/gmail/drafts");
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(json?.error?.message ?? `Server error: ${res.status}`);
-        return;
+
+      // 2. Fetch updated drafts in the background
+      const resFull = await apiFetch("/api/gmail/drafts");
+      if (resFull.ok) {
+        const json = await resFull.json();
+        const list: DraftMessage[] = json.data?.drafts ?? json.data ?? [];
+        
+        // Sort newest first
+        list.sort((a, b) => {
+          const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+          const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+          return db - da;
+        });
+        
+        setDrafts(list);
       }
-      const json = await res.json();
-      const list: DraftMessage[] = json.data?.drafts ?? json.data ?? [];
-      
-      // Sort newest first
-      list.sort((a, b) => {
-        const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
-        const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
-        return db - da;
-      });
-      
-      setDrafts(list);
     } catch {
       setError("Could not connect to the API server");
     } finally {

@@ -98,6 +98,54 @@ export default function CalendarPage() {
   const [now, setNow] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Tasks state
+  const [showTasks, setShowTasks] = useState(true);
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; completed: boolean }>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("noctra_calendar_tasks");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return [
+      { id: "task_1", title: "Review Gmail sync status", completed: false },
+      { id: "task_2", title: "Schedule design review meeting", completed: false },
+      { id: "task_3", title: "Prepare weekly status updates", completed: true },
+    ];
+  });
+  const [newTaskText, setNewTaskText] = useState("");
+
+  // Persist tasks in localStorage
+  useEffect(() => {
+    localStorage.setItem("noctra_calendar_tasks", JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskText.trim()) return;
+    const task = {
+      id: `task_${Date.now()}`,
+      title: newTaskText.trim(),
+      completed: false,
+    };
+    setTasks((prev) => [task, ...prev]);
+    setNewTaskText("");
+  };
+
+  const handleToggleTask = (id: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
+  };
+
+  const handleDeleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
   // AI Assistant input in right drawer
   const [aiInput, setAiInput] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
@@ -355,7 +403,12 @@ export default function CalendarPage() {
                 <span>Primary Calendar</span>
               </label>
               <label className="flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
-                <input type="checkbox" defaultChecked className="accent-emerald-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer" />
+                <input
+                  type="checkbox"
+                  checked={showTasks}
+                  onChange={(e) => setShowTasks(e.target.checked)}
+                  className="accent-emerald-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer"
+                />
                 <span>Sync Tasks</span>
               </label>
               <label className="flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
@@ -364,6 +417,61 @@ export default function CalendarPage() {
               </label>
             </div>
           </div>
+
+          {/* Tasks Checklist Panel */}
+          {showTasks && (
+            <div className="flex flex-col gap-3 border-t border-white/[0.04] pt-4 flex-1 overflow-hidden">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Tasks Checklist</span>
+              
+              {/* Add Task Form */}
+              <form onSubmit={handleAddTask} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTaskText}
+                  onChange={(e) => setNewTaskText(e.target.value)}
+                  placeholder="New task..."
+                  className="flex-1 rounded-lg border border-white/[0.05] bg-[#020206] px-2.5 py-1 text-[11.5px] text-zinc-150 placeholder-zinc-700 outline-none focus:border-amber-500/40 font-mono"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 hover:bg-amber-600 px-2 py-1 text-[10px] font-mono font-bold text-zinc-950 transition-all cursor-pointer"
+                >
+                  +
+                </button>
+              </form>
+
+              {/* Tasks List */}
+              <div className="flex-1 overflow-y-auto space-y-2.5 mt-1 pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+                {tasks.length === 0 ? (
+                  <span className="text-[10px] font-mono text-zinc-650 italic">No tasks added.</span>
+                ) : (
+                  tasks.map((task) => (
+                    <div key={task.id} className="flex items-start justify-between gap-2 group">
+                      <label className="flex items-start gap-2 cursor-pointer select-none flex-1">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => handleToggleTask(task.id)}
+                          className="accent-amber-500 h-3.5 w-3.5 mt-0.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer"
+                        />
+                        <span className={`text-[11px] font-mono leading-tight break-all ${
+                          task.completed ? "text-zinc-600 line-through" : "text-zinc-350"
+                        }`}>
+                          {task.title}
+                        </span>
+                      </label>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="text-zinc-650 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Center Panel: Large Weekly hourly Calendar Grid */}

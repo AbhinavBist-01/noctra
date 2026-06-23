@@ -100,27 +100,39 @@ export default function SentPage() {
     if (showLoader) setLoading(true);
     setError(null);
     try {
+      // 1. Fetch first 20 cached messages instantly
+      const resInitial = await apiFetch("/api/gmail/messages?limit=20");
+      if (resInitial.ok) {
+        const json = await resInitial.json();
+        const msgs: SentMessage[] = json.data?.messages ?? json.data ?? [];
+        const sent = msgs.filter((m) => m.labels?.includes("SENT"));
+        sent.sort((a, b) => {
+          const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+          const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+          return db - da;
+        });
+        setMessages(sent);
+        setLoading(false);
+      }
+
       if (doRefresh) {
         // Only refresh server-side cache when explicitly requested
         await apiFetch("/api/gmail/refresh", { method: "POST" });
       }
-      const res = await apiFetch("/api/gmail/messages?limit=50");
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(json?.error?.message ?? `Server error: ${res.status}`);
-        return;
+
+      // 2. Fetch the rest of the messages (limit=50) in the background
+      const resFull = await apiFetch("/api/gmail/messages?limit=50");
+      if (resFull.ok) {
+        const json = await resFull.json();
+        const msgs: SentMessage[] = json.data?.messages ?? json.data ?? [];
+        const sent = msgs.filter((m) => m.labels?.includes("SENT"));
+        sent.sort((a, b) => {
+          const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+          const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+          return db - da;
+        });
+        setMessages(sent);
       }
-      const json = await res.json();
-      const msgs: SentMessage[] = json.data?.messages ?? json.data ?? [];
-      // Filter only SENT messages
-      const sent = msgs.filter((m) => m.labels?.includes("SENT"));
-      // Sort newest first
-      sent.sort((a, b) => {
-        const da = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
-        const db = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
-        return db - da;
-      });
-      setMessages(sent);
     } catch {
       setError("Could not connect to the API server");
     } finally {
