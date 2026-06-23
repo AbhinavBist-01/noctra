@@ -11,12 +11,15 @@ export const previewCommand = async (
   input: CommandPreviewRequest,
 ): Promise<CommandPreviewResponse> => {
   // Try LLM parser first, fall back to regex if agent fails
-  const useAgent = process.env.OPENROUTER_API_KEY !== undefined;
+  const useAgent =
+    process.env.GEMINI_API_KEY !== undefined ||
+    process.env.OPENAI_API_KEY !== undefined ||
+    process.env.OPENROUTER_API_KEY !== undefined;
   
   if (useAgent) {
     return await parseCommandWithAgent(input.command);
   } else {
-    // Fallback to regex parser if no OPENROUTER_API_KEY
+    // Fallback to regex parser if no LLM key
     return parseCommand(input.command);
   }
 };
