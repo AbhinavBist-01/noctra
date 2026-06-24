@@ -100,29 +100,33 @@ export default function CalendarPage() {
 
   // Tasks state
   const [showTasks, setShowTasks] = useState(true);
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string; completed: boolean }>>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("noctra_calendar_tasks");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          return [];
-        }
-      }
-    }
-    return [
-      { id: "task_1", title: "Review Gmail sync status", completed: false },
-      { id: "task_2", title: "Schedule design review meeting", completed: false },
-      { id: "task_3", title: "Prepare weekly status updates", completed: true },
-    ];
-  });
+  const [isMounted, setIsMounted] = useState(false);
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; completed: boolean }>>([
+    { id: "task_1", title: "Review Gmail sync status", completed: false },
+    { id: "task_2", title: "Schedule design review meeting", completed: false },
+    { id: "task_3", title: "Prepare weekly status updates", completed: true },
+  ]);
   const [newTaskText, setNewTaskText] = useState("");
 
-  // Persist tasks in localStorage
+  // Load tasks on mount
   useEffect(() => {
-    localStorage.setItem("noctra_calendar_tasks", JSON.stringify(tasks));
-  }, [tasks]);
+    setIsMounted(true);
+    const saved = localStorage.getItem("noctra_calendar_tasks");
+    if (saved) {
+      try {
+        setTasks(JSON.parse(saved));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Persist tasks in localStorage only after mount
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem("noctra_calendar_tasks", JSON.stringify(tasks));
+    }
+  }, [tasks, isMounted]);
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
