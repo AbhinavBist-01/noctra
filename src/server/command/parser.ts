@@ -23,13 +23,17 @@ const calendarPatterns = [
   /invite\s+(.+?)(?:\s+to\s+(.+?))?(?:\s+at\s+(.+))?$/i,
 ];
 
-const referentialPattern = /^(?:also\s+)?(?:send|draft|create)\s+(?:him|her|them)\s+(?:an?\s+)?(email|invite)(?:\s+too(?:\s+(?:saying|with\s+body)\s+(.+))?)?(?:\s+(?:saying|with\s+body)\s+(.+))?$/i;
+const referentialPattern =
+  /^(?:also\s+)?(?:send|draft|create)\s+(?:him|her|them)\s+(?:an?\s+)?(email|invite)(?:\s+too(?:\s+(?:saying|with\s+body)\s+(.+))?)?(?:\s+(?:saying|with\s+body)\s+(.+))?$/i;
 
 const extractEmails = (raw: string): string[] => {
   const emails = raw.match(/[\w.-]+@[\w.-]+\.\w+/g);
   if (emails) return emails;
 
-  const nameParts = raw.split(/,\s*|\s+and\s+/).map((s) => s.trim()).filter(Boolean);
+  const nameParts = raw
+    .split(/,\s*|\s+and\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   return nameParts.length > 0 ? nameParts : [raw.trim()];
 };
 
@@ -58,8 +62,13 @@ const parseDate = (text?: string): { start: string; end: string } => {
   }
 
   const dayNames: Record<string, number> = {
-    sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
-    thursday: 4, friday: 5, saturday: 6,
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
   };
 
   for (const [name, dayIndex] of Object.entries(dayNames)) {
@@ -156,7 +165,9 @@ const parseEmailAction = (text: string): EmailCommandAction | null => {
   return null;
 };
 
-const parseCalendarAction = (text: string): CalendarInviteCommandAction | null => {
+const parseCalendarAction = (
+  text: string,
+): CalendarInviteCommandAction | null => {
   for (const pattern of calendarPatterns) {
     const match = text.match(pattern);
     if (match) {
@@ -165,7 +176,10 @@ const parseCalendarAction = (text: string): CalendarInviteCommandAction | null =
       const group3 = match[3]?.trim();
       const group4 = match[4]?.trim();
 
-      if (pattern.toString().includes("titled") || pattern.toString().includes("called")) {
+      if (
+        pattern.toString().includes("titled") ||
+        pattern.toString().includes("called")
+      ) {
         const title = group1;
         const rawAttendees = group2;
         const dateText = group3;
@@ -215,13 +229,20 @@ const parseReferentialAction = (
 
   const lastEmailAction = [...previousActions]
     .reverse()
-    .find((a) => a.type === "email_draft" || a.type === "email_send") as EmailCommandAction | undefined;
+    .find((a) => a.type === "email_draft" || a.type === "email_send") as
+    | EmailCommandAction
+    | undefined;
 
   const lastCalendarAction = [...previousActions]
     .reverse()
-    .find((a) => a.type === "calendar_invite") as CalendarInviteCommandAction | undefined;
+    .find((a) => a.type === "calendar_invite") as
+    | CalendarInviteCommandAction
+    | undefined;
 
-  if ((actionType === "email" || actionType === "an email") && lastCalendarAction) {
+  if (
+    (actionType === "email" || actionType === "an email") &&
+    lastCalendarAction
+  ) {
     return {
       id: nextId(),
       type: "email_send",
@@ -250,7 +271,7 @@ export const parseCommandWithAgent = async (
   command: string,
 ): Promise<{ actions: CommandPreviewAction[]; warnings: string[] }> => {
   actionCounter = 0;
-  
+
   try {
     const response = await agentJson<{
       actions: Array<{
@@ -282,16 +303,15 @@ Return JSON with this schema:
       "description": "event description",
       "start": "ISO 8601 datetime",
       "end": "ISO 8601 datetime",
-      "timezone": "America/New_York",
+      "timezone": "India/New Delhi",
       "attendees": [{ "email": "attendee@example.com", "name": "Name" }]
     }
   ],
   "warnings": ["any unparseable parts"]
 }
-Email actions: extract recipient emails, subject, and body.
-Calendar actions: extract title, attendees, start/end times (default: 1 hour from now).
-If unsure about time, default to 1 hour from now.
-For attendees, extract emails only.`,
+Email actions: Extract recipient emails and subject. If the email body is not fully written in the command (e.g. it is omitted, or is a brief instruction/topic like "telling him I'll be late" or "about tomorrow's sync"), you MUST automatically generate a professional, complete, and polite email body matching that context (including proper greeting, structured paragraphs, and professional sign-off). Do NOT leave the body empty or copy the prompt as-is.
+If unsure about calendar time, default to 1 hour from now.
+For calendar attendees, extract emails only.`,
       },
       {
         role: "user",

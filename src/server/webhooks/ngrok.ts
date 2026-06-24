@@ -143,49 +143,21 @@ export function getNgrokUrl(): string | null {
 // --- Gmail Watch ---
 
 export async function setupGmailWatch(topicName: string): Promise<void> {
-  if (!tunnelUrl) throw new Error("ngrok tunnel not running");
-
-  const tenant = getTenant();
-  console.log(`[gmail-watch] Registering Watch with topic: ${topicName}`);
-
-  const result = await (tenant.gmail.api as any).users.watch({
-    userId: "me",
-    requestBody: { topicName, labelIds: ["INBOX"] },
-  } as any);
-
-  console.log(`[gmail-watch] Watch registered (expiration: ${result.expiration})`);
+  console.log(`[gmail-watch] Skipping watch registration (topic: ${topicName}). Webhook watches are managed externally.`);
 }
 
 export async function stopGmailWatch(): Promise<void> {
-  const tenant = getTenant();
-  await (tenant.gmail.api as any).users.stop({ userId: "me" } as any);
-  console.log("[gmail-watch] Watch stopped");
+  console.log("[gmail-watch] Stopping watch (skipped)");
 }
 
 // --- Calendar Watch ---
 
 export async function setupCalendarWatch(): Promise<void> {
-  if (!tunnelUrl) throw new Error("ngrok tunnel not running");
-
-  const tenant = getTenant();
-  const address = `${tunnelUrl}/api/webhooks/calendar`;
-
-  console.log(`[calendar-watch] Registering Watch → ${address}`);
-
-  const result = await (tenant.googlecalendar.api as any).events.watch({
-    calendarId: "primary",
-    requestBody: {
-      id: randomUUID(),
-      type: "web_hook",
-      address,
-    },
-  } as any);
-
-  console.log(`[calendar-watch] Watch registered (expiration: ${result.expiration})`);
+  console.log("[calendar-watch] Skipping watch registration. Webhook watches are managed externally.");
 }
 
 export async function stopCalendarWatch(): Promise<void> {
-  console.log("[calendar-watch] Calendar watch will expire automatically");
+  console.log("[calendar-watch] Stopping calendar watch (skipped)");
 }
 
 // --- Combined setup ---

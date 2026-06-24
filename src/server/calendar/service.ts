@@ -82,7 +82,7 @@ export const deleteCalendarEvent = async (eventId: string) => {
     const tenant = getTenant();
     await tenant.googlecalendar.api.events.delete({
       calendarId: "primary",
-      eventId,
+      id: eventId,
     } as any);
     return { success: true };
   } catch (error) {
