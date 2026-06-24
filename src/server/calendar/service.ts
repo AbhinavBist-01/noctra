@@ -76,3 +76,19 @@ export const createCalendarInvite = async (
     );
   }
 };
+
+export const deleteCalendarEvent = async (eventId: string) => {
+  try {
+    const tenant = getTenant();
+    await tenant.googlecalendar.api.events.delete({
+      calendarId: "primary",
+      eventId,
+    } as any);
+    return { success: true };
+  } catch (error) {
+    throw new AppError(
+      "CORSAIR_ERROR",
+      `Failed to delete event: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+};

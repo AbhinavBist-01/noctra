@@ -55,19 +55,19 @@ function formatWeekLabel(start: Date) {
   end.setDate(end.getDate() + 6);
   const opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric" };
   if (start.getMonth() !== end.getMonth()) {
-    return `${start.toLocaleDateString([], { month: "short", day: "numeric" })} – ${end.toLocaleDateString([], opts)}`;
+    return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", opts)}`;
   }
-  return `${start.toLocaleDateString([], opts)} – ${end.getDate()}, ${end.getFullYear()}`;
+  return `${start.toLocaleDateString("en-US", opts)} – ${end.getDate()}, ${end.getFullYear()}`;
 }
 
 function formatHour(h: number) {
   const d = new Date();
   d.setHours(h, 0, 0, 0);
-  return d.toLocaleTimeString([], { hour: "numeric", hour12: true });
+  return d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true });
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 function isSameDay(date: Date, iso: string) {
@@ -150,6 +150,10 @@ export default function CalendarPage() {
   const [aiInput, setAiInput] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSuccess, setAiSuccess] = useState<string | null>(null);
+
+  // Preview and deletion states for individual events
+  const [selectedEventPreview, setSelectedEventPreview] = useState<CalendarEvent | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
 
   // Mock mini month calendar visual helper
   const [miniMonthDays, setMiniMonthDays] = useState<Date[]>([]);
@@ -548,6 +552,7 @@ export default function CalendarPage() {
                           <motion.div
                             key={evt.id}
                             whileHover={{ scale: 1.01, zIndex: 30 }}
+                            onClick={() => setSelectedEventPreview(evt)}
                             className="absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10 p-2 text-xs shadow-md transition-all hover:z-20 hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer border-l-2"
                             style={{ top: `${top}px`, height: `${height}px` }}
                           >
@@ -643,6 +648,100 @@ export default function CalendarPage() {
           onCancel={() => setPreview(null)}
           loading={executing}
         />
+      )}
+
+      {/* Event Details Preview & Deletion Modal */}
+      {selectedEventPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#020208] p-6 shadow-2xl font-mono"
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.04] pb-3 mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500">Event Details</h3>
+              <button
+                onClick={() => setSelectedEventPreview(null)}
+                className="text-zinc-500 hover:text-zinc-200 text-[10px] font-bold cursor-pointer"
+              >
+                CLOSE
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Title */}
+              <div>
+                <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Title</span>
+                <span className="text-zinc-100 font-bold text-xs">{selectedEventPreview.title}</span>
+              </div>
+
+              {/* Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Start Time</span>
+                  <span className="text-zinc-200 text-[11px]">{new Date(selectedEventPreview.start).toLocaleString("en-US")}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">End Time</span>
+                  <span className="text-zinc-200 text-[11px]">{new Date(selectedEventPreview.end).toLocaleString("en-US")}</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              {selectedEventPreview.description && (
+                <div>
+                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Description</span>
+                  <p className="text-zinc-300 text-[11px] leading-relaxed bg-white/[0.01] border border-white/[0.03] rounded-xl p-3 mt-1">{selectedEventPreview.description}</p>
+                </div>
+              )}
+
+              {/* Attendees */}
+              {selectedEventPreview.attendees && selectedEventPreview.attendees.length > 0 && (
+                <div>
+                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider mb-1">Attendees ({selectedEventPreview.attendees.length})</span>
+                  <div className="max-h-24 overflow-y-auto space-y-1.5 bg-white/[0.01] border border-white/[0.03] rounded-xl p-3 mt-1">
+                    {selectedEventPreview.attendees.map((att: any, idx: number) => (
+                      <div key={idx} className="text-[10px] text-zinc-350 truncate">
+                        {att.name ? `${att.name} (${att.email})` : att.email}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 justify-end border-t border-white/[0.04] pt-4 mt-6">
+              <button
+                onClick={async () => {
+                  if (confirm("Are you sure you want to delete this event?")) {
+                    setDeletingEventId(selectedEventPreview.id);
+                    try {
+                      const res = await apiFetch(`/api/calendar/events/${selectedEventPreview.id}`, {
+                        method: "DELETE"
+                      });
+                      if (res.ok) {
+                        setSelectedEventPreview(null);
+                        fetchEvents(weekStart);
+                      } else {
+                        const json = await res.json().catch(() => null);
+                        alert(json?.error?.message ?? "Failed to delete event");
+                      }
+                    } catch (err: any) {
+                      alert("Error deleting event: " + err.message);
+                    } finally {
+                      setDeletingEventId(null);
+                    }
+                  }
+                }}
+                disabled={deletingEventId !== null}
+                className="rounded-xl border border-red-500/20 bg-red-500/5 hover:border-red-500/40 hover:bg-red-500/10 px-4 py-2 text-[10px] font-bold text-red-400 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+              >
+                {deletingEventId === selectedEventPreview.id ? "DELETING..." : "DELETE EVENT"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

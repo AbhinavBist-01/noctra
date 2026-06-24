@@ -11,6 +11,7 @@ import {
   draftCalendarEvent,
   getCalendarEvents,
   refreshCalendarEvents,
+  deleteCalendarEvent,
 } from "./service";
 
 export const calendarRoute = Router();
@@ -65,6 +66,21 @@ calendarRoute.post("/invites", async (req, res, next) => {
 calendarRoute.get("/invites", async (_req, res, next) => {
   try {
     const result = await getCalendarEvents({});
+    res.status(200).json({ data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /events/:eventId — deletes a calendar event
+calendarRoute.delete("/events/:eventId", async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    if (!eventId) {
+      res.status(400).json({ error: "eventId is required" });
+      return;
+    }
+    const result = await deleteCalendarEvent(eventId);
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);
