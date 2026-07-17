@@ -54,11 +54,12 @@ export const executeAction = async (
       };
     }
 
+    const fallbackAction = action as CommandPreviewAction;
     return {
-      actionId: action.id,
-      type: action.type,
+      actionId: fallbackAction.id,
+      type: fallbackAction.type,
       status: "failed",
-      error: `Unknown action type: ${(action as any).type}`,
+      error: `Unknown action type: ${fallbackAction.type}`,
     };
   } catch (error) {
     return {

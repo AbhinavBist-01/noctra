@@ -1,9 +1,10 @@
 import type { CreateCalendarInviteRequest } from "@/shared/calendar";
 
 import { getTenant } from "../corsair/tenant";
-import { mapCalendarEventSummary } from "./mapper";
+import { mapCalendarEventSummary, type RawCalendarEvent } from "./mapper";
 import { AppError } from "../lib/app-error";
 import { telemetryService } from "../telemetry/service";
+import type { CalendarEventGetManyParams, CalendarEventCreateParams } from "../lib/corsair-types";
 
 export const getCalendarEvents = async (input: {
   query?: string;
@@ -14,13 +15,13 @@ export const getCalendarEvents = async (input: {
   try {
     const tenant = getTenant();
 
-    const params: Record<string, any> = {};
+    const params: CalendarEventGetManyParams = {};
     if (input.weekStart) params.timeMin = input.weekStart;
     if (input.weekEnd) params.timeMax = input.weekEnd;
     if (input.query) params.q = input.query;
 
-    const raw = await tenant.googlecalendar.api.events.getMany(params as any);
-    const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
+    const raw = await tenant.googlecalendar.api.events.getMany(params);
+    const list = Array.isArray(raw) ? raw : raw?.items ?? [];
 
     const duration = Date.now() - startTime;
     telemetryService.recordToolCall("code_exec", duration); // Calendar API calls
@@ -32,9 +33,14 @@ export const getCalendarEvents = async (input: {
     );
 
     return {
-      events: list.map((e: any) => mapCalendarEventSummary(e.data ?? e)),
+      events: list.map((e) => {
+        const rawEvent = (e && typeof e === "object" && "data" in e && e.data)
+          ? (e.data as RawCalendarEvent)
+          : (e as RawCalendarEvent);
+        return mapCalendarEventSummary(rawEvent);
+      }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to list events: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -51,8 +57,8 @@ export const draftCalendarEvent = async (
 export const refreshCalendarEvents = async () => {
   try {
     const tenant = getTenant();
-    await tenant.googlecalendar.api.events.getMany({ maxResults: 50 } as any);
-  } catch (error) {
+    await tenant.googlecalendar.api.events.getMany({ maxResults: 50 });
+  } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to refresh calendar: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -67,20 +73,20 @@ export const createCalendarInvite = async (
   try {
     const tenant = getTenant();
 
-    const params = {
+    const params: CalendarEventCreateParams = {
       event: {
         summary: input.title,
-        description: input.description,
-        location: input.location,
+        description: input.description || undefined,
+        location: input.location || undefined,
         start: { dateTime: input.start, timeZone: input.timezone },
         end: { dateTime: input.end, timeZone: input.timezone },
         attendees: input.attendees.map((a) => ({
           email: a.email,
-          displayName: a.name,
+          displayName: a.name || undefined,
         })),
       },
     };
-    const event = await tenant.googlecalendar.api.events.create(params as any);
+    const event = await tenant.googlecalendar.api.events.create(params);
 
     const duration = Date.now() - startTime;
     telemetryService.recordToolCall("code_exec", duration); // Calendar API calls
@@ -92,7 +98,7 @@ export const createCalendarInvite = async (
     );
 
     return event;
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to create invite: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -106,9 +112,9 @@ export const deleteCalendarEvent = async (eventId: string) => {
     await tenant.googlecalendar.api.events.delete({
       calendarId: "primary",
       id: eventId,
-    } as any);
+    });
     return { success: true };
-  } catch (error) {
+  } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to delete event: ${error instanceof Error ? error.message : "Unknown error"}`,

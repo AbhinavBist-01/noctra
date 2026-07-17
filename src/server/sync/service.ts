@@ -14,13 +14,20 @@ const PLUGINS = ["gmail", "googlecalendar"] as const;
 
 async function ensurePluginKeys(
   tenant: ReturnType<typeof corsair.withTenant>,
-  pluginName: string,
+  pluginName: (typeof PLUGINS)[number],
   accessToken: string,
   refreshToken: string | null,
   scope: string | null,
   expiresAt: string | null | undefined,
 ) {
-  const plugin = (tenant as any)[pluginName];
+  const plugin =
+    pluginName === "gmail"
+      ? tenant.gmail
+      : pluginName === "googlecalendar"
+        ? tenant.googlecalendar
+        : null;
+
+  if (!plugin) return;
   const keys = plugin.keys;
 
   // Issue DEK if not present
@@ -128,17 +135,19 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
   let calendar = false;
 
   try {
-    await tenant.gmail.api.messages.list({ maxResults: 1 } as any);
+    await tenant.gmail.api.messages.list({ maxResults: 1 });
     gmail = true;
   } catch (err) {
-    console.error("Gmail sync test failed:", (err as Error).message);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Gmail sync test failed:", msg);
   }
 
   try {
-    await tenant.googlecalendar.api.events.getMany({} as any);
+    await tenant.googlecalendar.api.events.getMany({});
     calendar = true;
   } catch (err) {
-    console.error("Calendar sync test failed:", (err as Error).message);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Calendar sync test failed:", msg);
   }
 
   return { gmail, calendar };

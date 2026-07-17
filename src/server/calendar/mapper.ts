@@ -6,7 +6,7 @@ type RawCalendarAttendee = {
   name?: string;
 };
 
-type RawCalendarEvent = {
+export type RawCalendarEvent = {
   id?: string;
   summary?: string;
   title?: string;

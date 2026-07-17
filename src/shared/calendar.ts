@@ -21,6 +21,10 @@ export const CreateCalendarInviteRequestSchema = z.object({
   attendees: z.array(CalendarAttendeeSchema).min(1),
 });
 
+export const DeleteCalendarEventParamsSchema = z.object({
+  eventId: z.string().min(1),
+});
+
 export type CalendarAttendee = {
   email: string;
   name?: string;

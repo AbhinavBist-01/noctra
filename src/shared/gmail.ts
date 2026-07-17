@@ -30,6 +30,14 @@ export const SendGmailDraftParamsSchema = z.object({
   draftId: z.string().min(1),
 });
 
+export const SummarizeEmailRequestSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+export const SummarizeBatchEmailRequestSchema = z.object({
+  limit: z.coerce.number().int().positive().optional(),
+});
+
 export type GmailMessageSummary = {
   id: string;
   threadId?: string;

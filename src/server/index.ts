@@ -18,8 +18,9 @@ async function initWebhooks(): Promise<void> {
     try {
       await startNgrok(Number(PORT));
       await setupWatches();
-    } catch (err: any) {
-      console.log(`[webhooks] Skipped: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[webhooks] Skipped: ${msg}`);
     }
   }
 }
@@ -45,13 +46,14 @@ app.listen(PORT, async () => {
       console.log("[corsair] Pre-loaded Google credentials from database");
       
       // Test connection
-      await tenant.gmail.api.messages.list({ maxResults: 1 } as any);
+      await tenant.gmail.api.messages.list({ maxResults: 1 });
       console.log("[corsair] Gmail integration ready");
     } else {
       console.log("[corsair] No Google integration credentials found in database yet");
     }
-  } catch (e: any) {
-    console.log(`[corsair] Gmail integration check failed: ${e.message}`);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`[corsair] Gmail integration check failed: ${msg}`);
   }
 
   await initWebhooks();
@@ -76,8 +78,9 @@ app.listen(PORT, async () => {
       await refreshGmailMessages();
       await refreshCalendarEvents();
       console.log("[Auto-Sync] Synced Gmail & Calendar");
-    } catch (err: any) {
-      console.log(`[Auto-Sync] Warning: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[Auto-Sync] Warning: ${msg}`);
     }
   }, 45000);
 });

@@ -15,6 +15,8 @@ import {
   ListGmailMessagesQuerySchema,
   SendGmailDraftParamsSchema,
   SendGmailMessageRequestSchema,
+  SummarizeEmailRequestSchema,
+  SummarizeBatchEmailRequestSchema,
 } from "@/shared/gmail";
 import { summarizeEmail, summarizeEmailsBatch } from "./summarize";
 import { validate } from "../lib/validation";
@@ -86,11 +88,7 @@ gmailRoute.get("/drafts", async (_req, res, next) => {
 
 gmailRoute.post("/messages/:messageId/trash", async (req, res, next) => {
   try {
-    const { messageId } = req.params;
-    if (!messageId) {
-      res.status(400).json({ error: "messageId required" });
-      return;
-    }
+    const { messageId } = validate(GetGmailMessageParamsSchema, req.params);
     const result = await trashGmailMessage(messageId);
     res.status(200).json({ data: result });
   } catch (error) {
@@ -100,11 +98,7 @@ gmailRoute.post("/messages/:messageId/trash", async (req, res, next) => {
 
 gmailRoute.post("/summarize", async (req, res, next) => {
   try {
-    const { messageId } = req.body as { messageId: string };
-    if (!messageId) {
-      res.status(400).json({ error: "messageId required" });
-      return;
-    }
+    const { messageId } = validate(SummarizeEmailRequestSchema, req.body);
     const message = await getGmailMessageById(messageId);
     if (!message) {
       res.status(404).json({ error: "Message not found" });
@@ -119,7 +113,7 @@ gmailRoute.post("/summarize", async (req, res, next) => {
 
 gmailRoute.post("/summarize-batch", async (req, res, next) => {
   try {
-    const { limit } = req.body as { limit?: number };
+    const { limit } = validate(SummarizeBatchEmailRequestSchema, req.body);
     const batchLimit = limit ?? 5;
 
     // Fetch the latest emails
@@ -138,7 +132,7 @@ gmailRoute.post("/summarize-batch", async (req, res, next) => {
       })
     );
 
-    const summary = await summarizeEmailsBatch(messagesWithDetails as any);
+    const summary = await summarizeEmailsBatch(messagesWithDetails);
     res.status(200).json({ data: { summary } });
   } catch (error) {
     next(error);
@@ -148,18 +142,24 @@ gmailRoute.post("/summarize-batch", async (req, res, next) => {
 gmailRoute.get("/debug/raw", async (_req, res, next) => {
   try {
     const tenant = (await import("../corsair/tenant")).getTenant();
-    const raw = await tenant.gmail.api.messages.list({ maxResults: 2 } as any);
-    const items = (raw as any)?.messages ?? (Array.isArray(raw) ? raw : []);
-    const debug = await Promise.all(items.slice(0, 2).map(async (m: any) => {
-      const id = m.id ?? m.entityId ?? m.data?.id;
-      if (!id) return { raw: m, fetched: null };
-      try {
-        const fetched = await tenant.gmail.api.messages.get({ id } as any);
-        return { raw: m, fetched: (fetched as any).data ?? fetched };
-      } catch (e: any) {
-        return { raw: m, fetched: null, error: e.message };
-      }
-    }));
+    const raw = await tenant.gmail.api.messages.list({ maxResults: 2 });
+    const items = (raw && typeof raw === "object" && "messages" in raw) ? (raw.messages ?? []) : [];
+    const debug = await Promise.all(
+      items.slice(0, 2).map(async (m) => {
+        const id = m.id;
+        if (!id) return { raw: m, fetched: null };
+        try {
+          const fetched = await tenant.gmail.api.messages.get({ id });
+          const data = (fetched && typeof fetched === "object" && "data" in fetched && fetched.data)
+            ? fetched.data
+            : fetched;
+          return { raw: m, fetched: data };
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : String(e);
+          return { raw: m, fetched: null, error: message };
+        }
+      })
+    );
     res.status(200).json({ data: { rawList: raw, items: debug } });
   } catch (error) {
     next(error);

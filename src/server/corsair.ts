@@ -7,10 +7,22 @@ import { conn } from "./db";
 const gmailPlugin = gmail();
 const calendarPlugin = googlecalendar();
 
+interface CorsairKeyContext {
+  authType: string;
+  keys: {
+    get_access_token(): Promise<string | null | undefined>;
+    get_expires_at(): Promise<string | null | undefined>;
+    get_refresh_token(): Promise<string | null | undefined>;
+    get_integration_credentials(): Promise<{ client_id?: string; client_secret?: string } | null | undefined>;
+    set_access_token(token: string): void;
+    set_expires_at(expiresAt: string): void;
+  };
+}
+
 // Override built-in keyBuilders to tolerate missing refresh_token
 // (needed until user re-auths to get a refresh_token from Google)
 const makeKeyBuilder = (name: string) => {
-  return async (ctx: any) => {
+  return async (ctx: CorsairKeyContext) => {
     if (ctx.authType !== "oauth_2") {
       const { AuthMissingError } = await import("corsair/core");
       throw new AuthMissingError(name, ctx.authType);
@@ -43,7 +55,7 @@ const makeKeyBuilder = (name: string) => {
             }),
           });
           if (res.ok) {
-            const json = await res.json();
+            const json = await res.json() as { access_token: string; expires_in?: number };
             const newToken: string = json.access_token;
             ctx.keys.set_access_token(newToken);
             if (json.expires_in) {
@@ -62,8 +74,8 @@ const makeKeyBuilder = (name: string) => {
   };
 };
 
-(gmailPlugin as any).keyBuilder = makeKeyBuilder("gmail");
-(calendarPlugin as any).keyBuilder = makeKeyBuilder("googlecalendar");
+(gmailPlugin as { keyBuilder?: unknown }).keyBuilder = makeKeyBuilder("gmail");
+(calendarPlugin as { keyBuilder?: unknown }).keyBuilder = makeKeyBuilder("googlecalendar");
 
 export const corsair = createCorsair({
   plugins: [gmailPlugin, calendarPlugin],

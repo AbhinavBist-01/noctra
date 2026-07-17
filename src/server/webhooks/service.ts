@@ -35,7 +35,7 @@ function decodePubSubBody(
 ): Record<string, unknown> | string {
   if (typeof body !== "object" || !body) return body;
 
-  const msg = body as Record<string, any>;
+  const msg = body as { message?: { data?: string }; subscription?: string };
   if (!msg.message || !msg.subscription) return body;
 
   console.log("[WEBHOOK] Pub/Sub notification detected");
@@ -46,7 +46,7 @@ function decodePubSubBody(
   try {
     const decoded = Buffer.from(encoded, "base64").toString("utf-8");
     console.log(`[WEBHOOK] Decoded payload: ${decoded}`);
-    return JSON.parse(decoded);
+    return JSON.parse(decoded) as Record<string, unknown>;
   } catch (e) {
     console.error("[WEBHOOK] Failed to decode Pub/Sub data:", e);
     return body;
@@ -58,14 +58,14 @@ function detectWebhookType(
   body: Record<string, unknown> | string,
 ): { type: WebhookLogEntry["type"]; event: string } {
   if (typeof body === "string") return { type: "unknown", event: "raw_string" };
-  const b = body as Record<string, any>;
+  const b = body as Record<string, unknown>;
 
-  if (b.historyId || b.emailAddress) {
+  if ("historyId" in b || "emailAddress" in b) {
     return { type: "gmail", event: b.historyId ? `historyId:${b.historyId}` : "inbox_change" };
   }
 
-  if (b.resourceId || b.syncToken) {
-    return { type: "calendar", event: b.resourceId ?? "sync" };
+  if ("resourceId" in b || "syncToken" in b) {
+    return { type: "calendar", event: (b.resourceId as string) ?? "sync" };
   }
 
   return { type: "unknown", event: Object.keys(b).slice(0, 3).join(",") || "empty" };
@@ -75,16 +75,22 @@ async function handleGmailNotification(historyId: string) {
   const tenant = getTenant();
   console.log(`[WEBHOOK] Fetching messages after historyId ${historyId}`);
   try {
-    const listRes = await tenant.gmail.api.messages.list({ maxResults: 20 } as any);
-    const items = (listRes as any)?.messages ?? [];
+    const listRes = await tenant.gmail.api.messages.list({ maxResults: 20 });
+    const items = (listRes && typeof listRes === "object" && "messages" in listRes) ? (listRes.messages ?? []) : [];
     let fetched = 0;
     for (const item of items) {
       if (item?.id) {
         try {
-          const res = await tenant.gmail.api.messages.get({ id: item.id } as any);
-          const data = (res as any).data ?? res;
+          const res = await tenant.gmail.api.messages.get({ id: item.id });
+          const data = (res && typeof res === "object" && "data" in res && res.data)
+            ? res.data
+            : res;
           if (data) {
-            await tenant.gmail.db.messages.upsertByEntityId(item.id, data);
+            const upsertData = {
+              ...(data as any),
+              id: item.id,
+            } as any;
+            await tenant.gmail.db.messages.upsertByEntityId(item.id, upsertData);
           }
           fetched++;
         } catch { /* skip individual failures */ }
@@ -92,10 +98,16 @@ async function handleGmailNotification(historyId: string) {
     }
     console.log(`[WEBHOOK] Fetched and cached ${fetched} messages`);
     return fetched;
-  } catch (error: any) {
-    console.error(`[WEBHOOK] Failed to fetch messages:`, error?.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[WEBHOOK] Failed to fetch messages:`, message);
     throw error;
   }
+}
+
+interface GmailWebhookPayload extends Record<string, unknown> {
+  historyId?: string;
+  emailAddress?: string;
 }
 
 export const processWebhook = async (
@@ -107,19 +119,20 @@ export const processWebhook = async (
 
   // Decode Pub/Sub envelope if present
   const decodedBody = decodePubSubBody(body);
-  const decoded = typeof decodedBody === "object" && decodedBody !== null ? decodedBody as Record<string, any> : null;
+  const decoded = typeof decodedBody === "object" && decodedBody !== null ? decodedBody as GmailWebhookPayload : null;
   const { type, event } = detectWebhookType(headers, decoded ?? body);
 
   // Try corsair webhook processing first
   try {
-    const result = await corsairProcessWebhook(corsair, headers, decodedBody, query);
+    const result = await corsairProcessWebhook(corsair, headers, decodedBody as string | Record<string, unknown>, query);
     if (result.plugin) {
       addWebhookLog({ type, event: `${result.plugin}.${result.action}`, status: "success" });
       console.log(`[WEBHOOK] Handled by ${result.plugin}.${result.action}`);
       return result;
     }
-  } catch (error: any) {
-    console.log(`[WEBHOOK] corsairProcessWebhook failed: ${error?.message}, falling back to manual handler`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[WEBHOOK] corsairProcessWebhook failed: ${message}, falling back to manual handler`);
   }
 
   // Fallback: handle Gmail notifications directly
@@ -128,8 +141,9 @@ export const processWebhook = async (
       const fetched = await handleGmailNotification(decoded.historyId);
       addWebhookLog({ type: "gmail", event: `historyId:${decoded.historyId}`, status: "success", detail: `fetched ${fetched} messages` });
       return { plugin: "gmail", action: "historyChanged", data: { historyId: decoded.historyId, fetched } };
-    } catch (error: any) {
-      addWebhookLog({ type: "gmail", event: `historyId:${decoded.historyId}`, status: "error", detail: error?.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      addWebhookLog({ type: "gmail", event: `historyId:${decoded.historyId}`, status: "error", detail: message });
       throw error;
     }
   }

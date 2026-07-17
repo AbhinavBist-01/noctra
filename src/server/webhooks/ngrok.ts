@@ -177,8 +177,9 @@ export async function setupWatches(): Promise<WatchResult> {
     try {
       await setupGmailWatch(topicName);
       result.gmail = true;
-    } catch (err: any) {
-      console.error(`[gmail-watch] Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[gmail-watch] Failed: ${msg}`);
     }
   } else {
     console.log("[webhooks] Set GMAIL_PUBSUB_TOPIC to enable Gmail Watch");
@@ -187,8 +188,9 @@ export async function setupWatches(): Promise<WatchResult> {
   try {
     await setupCalendarWatch();
     result.calendar = true;
-  } catch (err: any) {
-    console.error(`[calendar-watch] Failed: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[calendar-watch] Failed: ${msg}`);
   }
 
   return result;

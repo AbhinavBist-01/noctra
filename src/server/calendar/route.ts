@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   CreateCalendarInviteRequestSchema,
   ListCalendarEventsQuerySchema,
+  DeleteCalendarEventParamsSchema,
 } from "@/shared/calendar";
 
 import { validate } from "../lib/validation";
@@ -75,11 +76,7 @@ calendarRoute.get("/invites", async (_req, res, next) => {
 // DELETE /events/:eventId — deletes a calendar event
 calendarRoute.delete("/events/:eventId", async (req, res, next) => {
   try {
-    const { eventId } = req.params;
-    if (!eventId) {
-      res.status(400).json({ error: "eventId is required" });
-      return;
-    }
+    const { eventId } = validate(DeleteCalendarEventParamsSchema, req.params);
     const result = await deleteCalendarEvent(eventId);
     res.status(200).json({ data: result });
   } catch (error) {

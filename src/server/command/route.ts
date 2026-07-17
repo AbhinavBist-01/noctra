@@ -2,12 +2,13 @@ import { Router } from "express";
 import { previewCommand, executeCommand } from "./service";
 import { PreviewRequestSchema, ExecuteRequestSchema } from "@/shared/command";
 import type { CommandExecuteRequest } from "@/shared/command";
+import { validate } from "../lib/validation";
 
 export const commandRoute = Router();
 
 commandRoute.post("/preview", async (req, res, next) => {
   try {
-    const body = PreviewRequestSchema.parse(req.body);
+    const body = validate(PreviewRequestSchema, req.body);
     const result = await previewCommand(body);
     res.status(200).json({ data: result });
   } catch (error) {
@@ -17,7 +18,7 @@ commandRoute.post("/preview", async (req, res, next) => {
 
 commandRoute.post("/execute", async (req, res, next) => {
   try {
-    const body = ExecuteRequestSchema.parse(req.body) as CommandExecuteRequest;
+    const body = validate(ExecuteRequestSchema, req.body) as CommandExecuteRequest;
     const result = await executeCommand(body);
     res.status(200).json({ data: result });
   } catch (error) {

@@ -6,7 +6,7 @@ type GmailHeader = {
   value?: string;
 };
 
-type RawGmailMessage = {
+export type RawGmailMessage = {
   id?: string;
   threadId?: string;
   snippet?: string;
