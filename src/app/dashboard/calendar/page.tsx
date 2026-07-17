@@ -7,17 +7,10 @@ import { CreateEventModal } from "@/components/create-event-modal";
 import type { CommandPreviewAction } from "@/shared/command";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CalendarBlank,
-  Clock,
   Sparkle,
   ArrowClockwise,
-  Plus,
   CaretLeft,
   CaretRight,
-  User,
-  Check,
-  X,
-  Warning
 } from "@phosphor-icons/react";
 
 type CalendarEvent = {
@@ -29,7 +22,6 @@ type CalendarEvent = {
   attendees?: { email: string; name?: string }[];
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 56; // taller slots for premium look
@@ -114,7 +106,8 @@ export default function CalendarPage() {
     const saved = localStorage.getItem("noctra_calendar_tasks");
     if (saved) {
       try {
-        setTasks(JSON.parse(saved));
+        const parsed = JSON.parse(saved) as { id: string; title: string; completed: boolean }[];
+        setTasks(parsed);
       } catch {
         // ignore
       }
@@ -185,12 +178,14 @@ export default function CalendarPage() {
         `/api/calendar/events?weekStart=${start.toISOString()}&weekEnd=${weekEnd.toISOString()}`,
       );
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
+        const json = (await res.json()) as { error?: { message?: string } } | null;
         setError(json?.error?.message ?? `Server error: ${res.status}`);
         return;
       }
-      const json = await res.json();
-      setEvents(json.data?.events ?? json.data ?? []);
+      const json = (await res.json()) as { data?: { events?: CalendarEvent[] } | CalendarEvent[] };
+      const data = json.data;
+      const eventsList = Array.isArray(data) ? data : (data?.events ?? []);
+      setEvents(eventsList);
     } catch {
       setError("Failed to sync calendar events.");
     } finally {
@@ -198,7 +193,7 @@ export default function CalendarPage() {
     }
   }, []);
 
-  useEffect(() => { fetchEvents(weekStart); }, [weekStart, fetchEvents]);
+  useEffect(() => { void fetchEvents(weekStart); }, [weekStart, fetchEvents]);
 
   const hasScrolled = useRef(false);
   useEffect(() => {
@@ -225,12 +220,12 @@ export default function CalendarPage() {
         body: JSON.stringify(event),
       });
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
+        const json = (await res.json()) as { error?: { message?: string } } | null;
         const msg = json?.error?.message ?? `Failed to create event (${res.status})`;
         setError(msg);
         return;
       }
-      setShowCreate(false); fetchEvents(weekStart);
+      setShowCreate(false); void fetchEvents(weekStart);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create invite – check server logs");
     }
@@ -250,11 +245,11 @@ export default function CalendarPage() {
         body: JSON.stringify({ command: aiInput.trim() }),
       });
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
+        const json = (await res.json()) as { error?: { message?: string } } | null;
         setAiError(json?.error?.message ?? `AI scheduling failed: ${res.status}`);
         return;
       }
-      const json = await res.json();
+      const json = (await res.json()) as { data?: { actions?: CommandPreviewAction[] } };
       const actions: CommandPreviewAction[] = json.data?.actions ?? [];
       const calAction = actions.find((a) => a.type === "calendar_invite");
       if (calAction) {
@@ -277,13 +272,13 @@ export default function CalendarPage() {
         body: JSON.stringify({ actions: preview }),
       });
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
+        const json = (await res.json()) as { error?: { message?: string } } | null;
         setAiError(json?.error?.message ?? `Execution failed: ${res.status}`);
         return;
       }
       setPreview(null);
       setAiSuccess("AI successfully scheduled your event!");
-      fetchEvents(weekStart);
+      void fetchEvents(weekStart);
     } catch { setAiError("Could not schedule event."); }
     finally { setExecuting(false); }
   }, [preview, fetchEvents, weekStart]);
@@ -300,7 +295,7 @@ export default function CalendarPage() {
   ];
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-hidden bg-[#020206] text-zinc-100 font-sans tracking-wide">
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-[#020208] text-zinc-150 font-sans tracking-wide">
       
       {/* Background radial grid overlay */}
       <div 
@@ -312,11 +307,11 @@ export default function CalendarPage() {
       />
       
       {/* Top Google-style Calendar Header */}
-      <div className="relative z-10 flex items-center justify-between border-b border-white/[0.04] bg-[#020206]/85 px-6 py-4">
+      <div className="relative z-10 flex items-center justify-between border-b border-white/[0.04] bg-[#020208]/85 px-6 py-4 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <button
             onClick={() => setWeekStart(getWeekStart(new Date()))}
-            className="rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] px-4 py-2 text-xs font-mono font-bold text-zinc-350 transition-colors shadow-sm cursor-pointer"
+            className="rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.12] px-4 py-2 text-xs font-mono font-bold text-zinc-350 transition-all shadow-sm cursor-pointer"
           >
             Today
           </button>
@@ -324,39 +319,39 @@ export default function CalendarPage() {
           <div className="flex items-center rounded-xl border border-white/[0.06] bg-white/[0.01] p-0.5">
             <button
               onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }}
-              className="rounded-lg p-2 text-zinc-455 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors cursor-pointer"
+              className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors cursor-pointer"
             >
               <CaretLeft size={14} weight="bold" />
             </button>
             <button
               onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }}
-              className="rounded-lg p-2 text-zinc-455 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors cursor-pointer"
+              className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 transition-colors cursor-pointer"
             >
               <CaretRight size={14} weight="bold" />
             </button>
           </div>
           
-          <h1 className="font-display text-base font-extrabold text-zinc-200">{formatWeekLabel(weekStart)}</h1>
+          <h1 className="font-display text-base font-extrabold text-zinc-250">{formatWeekLabel(weekStart)}</h1>
         </div>
 
         <div className="flex items-center gap-3">
           {loading && (
-            <span className="flex items-center gap-2 text-[11px] font-mono text-zinc-550">
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-850 border-t-amber-500" />
+            <span className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-800 border-t-amber-500" />
               Syncing...
             </span>
           )}
           <button
-            onClick={() => fetchEvents(weekStart)}
+            onClick={() => { void fetchEvents(weekStart); }}
             disabled={loading}
-            className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2 text-xs font-mono font-bold text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-40 shadow-sm cursor-pointer hover:border-white/[0.12]"
+            className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2 text-xs font-mono font-bold text-zinc-400 hover:text-zinc-200 transition-all disabled:opacity-40 shadow-sm cursor-pointer hover:border-white/[0.12]"
           >
             <ArrowClockwise className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="rounded-xl bg-amber-500 hover:bg-amber-600 px-5 py-2 text-xs font-mono font-bold text-zinc-950 shadow-md shadow-amber-500/10 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+            className="rounded-xl bg-amber-500 hover:bg-amber-600 px-5 py-2 text-xs font-display font-bold text-zinc-950 shadow-md shadow-amber-500/10 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
           >
             + ADD EVENT
           </button>
@@ -378,7 +373,7 @@ export default function CalendarPage() {
           {/* Mini Month Grid Visual */}
           <div className="flex flex-col gap-3">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">June 2026</span>
-            <div className="grid grid-cols-7 gap-y-2.5 text-center text-[9px] text-zinc-500 font-mono font-bold uppercase">
+            <div className="grid grid-cols-7 gap-y-2 text-center text-[9px] text-zinc-500 font-mono font-bold uppercase">
               <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
               
               {miniMonthDays.map((d, idx) => {
@@ -391,9 +386,9 @@ export default function CalendarPage() {
                       isToday
                         ? "bg-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/20"
                         : isCurrentWeek
-                        ? "bg-white/[0.03] border border-white/[0.05] text-zinc-200 font-bold"
+                        ? "bg-white/[0.02] border border-white/[0.04] text-zinc-200 font-bold"
                         : "text-zinc-650"
-                    }`}
+                     }`}
                   >
                     {d.getDate()}
                   </span>
@@ -406,21 +401,21 @@ export default function CalendarPage() {
           <div className="flex flex-col gap-3">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">My Calendars</span>
             <div className="space-y-3.5">
-              <label className="flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
-                <input type="checkbox" defaultChecked className="accent-amber-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer" />
+              <label className="flex items-center gap-2.5 font-sans text-xs text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
+                <input type="checkbox" defaultChecked className="accent-amber-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020208] transition-all cursor-pointer" />
                 <span>Primary Calendar</span>
               </label>
-              <label className="flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
+              <label className="flex items-center gap-2.5 font-sans text-xs text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
                 <input
                   type="checkbox"
                   checked={showTasks}
                   onChange={(e) => setShowTasks(e.target.checked)}
-                  className="accent-emerald-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer"
+                  className="accent-amber-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020208] transition-all cursor-pointer"
                 />
                 <span>Sync Tasks</span>
               </label>
-              <label className="flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
-                <input type="checkbox" className="accent-amber-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer" />
+              <label className="flex items-center gap-2.5 font-sans text-xs text-zinc-400 cursor-pointer hover:text-zinc-200 select-none">
+                <input type="checkbox" className="accent-amber-500 h-3.5 w-3.5 rounded border-white/[0.06] bg-[#020208] transition-all cursor-pointer" />
                 <span>Birthdays</span>
               </label>
             </div>
@@ -438,7 +433,7 @@ export default function CalendarPage() {
                   value={newTaskText}
                   onChange={(e) => setNewTaskText(e.target.value)}
                   placeholder="New task..."
-                  className="flex-1 rounded-lg border border-white/[0.05] bg-[#020206] px-2.5 py-1 text-[11.5px] text-zinc-150 placeholder-zinc-700 outline-none focus:border-amber-500/40 font-mono"
+                  className="flex-1 rounded-lg border border-white/[0.05] bg-[#020208]/80 px-2.5 py-1 text-[11.5px] text-zinc-150 placeholder-zinc-700 outline-none focus:border-amber-500/40 font-mono"
                 />
                 <button
                   type="submit"
@@ -460,17 +455,17 @@ export default function CalendarPage() {
                           type="checkbox"
                           checked={task.completed}
                           onChange={() => handleToggleTask(task.id)}
-                          className="accent-amber-500 h-3.5 w-3.5 mt-0.5 rounded border-white/[0.06] bg-[#020206] transition-all cursor-pointer"
+                          className="accent-amber-500 h-3.5 w-3.5 mt-0.5 rounded border-white/[0.06] bg-[#020208] transition-all cursor-pointer"
                         />
                         <span className={`text-[11px] font-mono leading-tight break-all ${
-                          task.completed ? "text-zinc-600 line-through" : "text-zinc-350"
+                          task.completed ? "text-zinc-650 line-through" : "text-zinc-350"
                         }`}>
                           {task.title}
                         </span>
                       </label>
                       <button
                         onClick={() => handleDeleteTask(task.id)}
-                        className="text-zinc-650 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold cursor-pointer"
+                        className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold cursor-pointer"
                       >
                         ×
                       </button>
@@ -487,11 +482,11 @@ export default function CalendarPage() {
           <div className="flex min-w-[700px]">
             
             {/* Hour Timeline Gutter */}
-            <div className="sticky left-0 z-20 w-14 shrink-0 bg-[#020206] border-r border-white/[0.04]">
+            <div className="sticky left-0 z-20 w-14 shrink-0 bg-[#020208] border-r border-white/[0.04]">
               <div className="h-12 border-b border-white/[0.04]" />
               {HOURS.map((h) => (
                 <div key={h} className="relative" style={{ height: `${HOUR_HEIGHT}px` }}>
-                  <span className="absolute -top-2 right-2.5 text-[9px] font-mono font-bold text-zinc-650">
+                  <span className="absolute -top-2 right-2.5 text-[9px] font-mono font-bold text-zinc-600">
                     {formatHour(h)}
                   </span>
                 </div>
@@ -508,7 +503,7 @@ export default function CalendarPage() {
                   {/* Sticky Day Column Header */}
                   <div
                     className={`sticky top-0 z-10 border-b border-white/[0.04] flex flex-col justify-center items-center py-2 ${
-                      isToday ? "bg-white/[0.02] backdrop-blur-md" : "bg-[#020206]/90 backdrop-blur-md"
+                      isToday ? "bg-white/[0.02] backdrop-blur-md" : "bg-[#020208]/90 backdrop-blur-md"
                     }`}
                     style={{ height: "48px" }}
                   >
@@ -557,10 +552,10 @@ export default function CalendarPage() {
                             key={evt.id}
                             whileHover={{ scale: 1.01, zIndex: 30 }}
                             onClick={() => setSelectedEventPreview(evt)}
-                            className="absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10 p-2 text-xs shadow-md transition-all hover:z-20 hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer border-l-2"
+                            className="absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10 p-2 text-xs shadow-md transition-all hover:shadow-lg hover:shadow-amber-500/5 cursor-pointer border-l-2"
                             style={{ top: `${top}px`, height: `${height}px` }}
                           >
-                            <div className="truncate font-semibold text-zinc-100 leading-tight">
+                            <div className="truncate font-semibold text-zinc-150 leading-tight">
                               {evt.title}
                             </div>
                             {height >= 24 && (
@@ -569,7 +564,7 @@ export default function CalendarPage() {
                               </div>
                             )}
                             {height >= 45 && evt.description && (
-                              <div className="mt-1 text-[10px] text-zinc-500 line-clamp-1 leading-normal font-mono">
+                              <div className="mt-1 text-[10px] text-zinc-550 line-clamp-1 leading-normal font-mono">
                                 {evt.description}
                               </div>
                             )}
@@ -591,13 +586,13 @@ export default function CalendarPage() {
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-200">AI Booking Assistant</span>
           </div>
 
-          <form onSubmit={handleAiCommandSubmit} className="flex flex-col gap-2.5">
+          <form onSubmit={(e) => { void handleAiCommandSubmit(e); }} className="flex flex-col gap-2.5">
             <textarea
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}
               placeholder="Tell AI to schedule an event... (e.g., 'Schedule a 1hr project sync with tom@example.com tomorrow at 10 AM')"
               rows={4}
-              className="resize-none rounded-xl border border-white/[0.05] bg-[#020206]/85 p-3.5 text-xs text-zinc-100 placeholder-zinc-700 outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/20 leading-normal font-mono"
+              className="resize-none rounded-xl border border-white/[0.05] bg-[#020208]/85 p-3.5 text-xs text-zinc-100 placeholder-zinc-700 outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/20 leading-normal font-mono"
             />
             <button
               type="submit"
@@ -609,11 +604,11 @@ export default function CalendarPage() {
           </form>
 
           {aiError && (
-            <div className="text-xs text-red-400 bg-red-950/10 border border-red-950/20 rounded-xl p-3 font-mono">{aiError}</div>
+            <div className="text-xs text-red-405 bg-red-950/10 border border-red-950/20 rounded-xl p-3 font-mono">{aiError}</div>
           )}
 
           {aiSuccess && (
-            <div className="text-xs text-emerald-450 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 font-mono">{aiSuccess}</div>
+            <div className="text-xs text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 font-mono">{aiSuccess}</div>
           )}
 
           {/* Interactive AI Prompt suggestions */}
@@ -648,105 +643,109 @@ export default function CalendarPage() {
         <PreviewModal
           actions={preview}
           onActionsChange={setPreview}
-          onConfirm={handleConfirm}
+          onConfirm={() => { void handleConfirm(); }}
           onCancel={() => setPreview(null)}
           loading={executing}
         />
       )}
 
       {/* Event Details Preview & Deletion Modal */}
-      {selectedEventPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#020208] p-6 shadow-2xl font-mono"
-          >
-            <div className="flex items-center justify-between border-b border-white/[0.04] pb-3 mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500">Event Details</h3>
-              <button
-                onClick={() => setSelectedEventPreview(null)}
-                className="text-zinc-500 hover:text-zinc-200 text-[10px] font-bold cursor-pointer"
-              >
-                CLOSE
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Title */}
-              <div>
-                <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Title</span>
-                <span className="text-zinc-100 font-bold text-xs">{selectedEventPreview.title}</span>
+      <AnimatePresence>
+        {selectedEventPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#020208] p-6 shadow-2xl font-mono"
+            >
+              <div className="flex items-center justify-between border-b border-white/[0.04] pb-3 mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500">Event Details</h3>
+                <button
+                  onClick={() => setSelectedEventPreview(null)}
+                  className="text-zinc-500 hover:text-zinc-200 text-[10px] font-bold cursor-pointer"
+                >
+                  CLOSE
+                </button>
               </div>
 
-              {/* Time */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                {/* Title */}
                 <div>
-                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Start Time</span>
-                  <span className="text-zinc-200 text-[11px]">{new Date(selectedEventPreview.start).toLocaleString("en-US")}</span>
+                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Title</span>
+                  <span className="text-zinc-100 font-bold text-xs">{selectedEventPreview.title}</span>
                 </div>
-                <div>
-                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">End Time</span>
-                  <span className="text-zinc-200 text-[11px]">{new Date(selectedEventPreview.end).toLocaleString("en-US")}</span>
-                </div>
-              </div>
 
-              {/* Description */}
-              {selectedEventPreview.description && (
-                <div>
-                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Description</span>
-                  <p className="text-zinc-300 text-[11px] leading-relaxed bg-white/[0.01] border border-white/[0.03] rounded-xl p-3 mt-1">{selectedEventPreview.description}</p>
-                </div>
-              )}
-
-              {/* Attendees */}
-              {selectedEventPreview.attendees && selectedEventPreview.attendees.length > 0 && (
-                <div>
-                  <span className="text-[9px] text-zinc-500 block uppercase tracking-wider mb-1">Attendees ({selectedEventPreview.attendees.length})</span>
-                  <div className="max-h-24 overflow-y-auto space-y-1.5 bg-white/[0.01] border border-white/[0.03] rounded-xl p-3 mt-1">
-                    {selectedEventPreview.attendees.map((att: any, idx: number) => (
-                      <div key={idx} className="text-[10px] text-zinc-350 truncate">
-                        {att.name ? `${att.name} (${att.email})` : att.email}
-                      </div>
-                    ))}
+                {/* Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Start Time</span>
+                    <span className="text-zinc-200 text-[11px]">{new Date(selectedEventPreview.start).toLocaleString("en-US")}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">End Time</span>
+                    <span className="text-zinc-200 text-[11px]">{new Date(selectedEventPreview.end).toLocaleString("en-US")}</span>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 justify-end border-t border-white/[0.04] pt-4 mt-6">
-              <button
-                onClick={async () => {
-                  if (confirm("Are you sure you want to delete this event?")) {
-                    setDeletingEventId(selectedEventPreview.id);
-                    try {
-                      const res = await apiFetch(`/api/calendar/events/${selectedEventPreview.id}`, {
-                        method: "DELETE"
-                      });
-                      if (res.ok) {
-                        setSelectedEventPreview(null);
-                        fetchEvents(weekStart);
-                      } else {
-                        const json = await res.json().catch(() => null);
-                        alert(json?.error?.message ?? "Failed to delete event");
+                {/* Description */}
+                {selectedEventPreview.description && (
+                  <div>
+                    <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">Description</span>
+                    <p className="text-zinc-300 text-[11px] leading-relaxed bg-white/[0.01] border border-white/[0.03] rounded-xl p-3 mt-1">{selectedEventPreview.description}</p>
+                  </div>
+                )}
+
+                {/* Attendees */}
+                {selectedEventPreview.attendees && selectedEventPreview.attendees.length > 0 && (
+                  <div>
+                    <span className="text-[9px] text-zinc-500 block uppercase tracking-wider mb-1">Attendees ({selectedEventPreview.attendees.length})</span>
+                    <div className="max-h-24 overflow-y-auto space-y-1.5 bg-white/[0.01] border border-white/[0.03] rounded-xl p-3 mt-1">
+                      {selectedEventPreview.attendees.map((att, idx) => (
+                        <div key={idx} className="text-[10px] text-zinc-350 truncate">
+                          {att.name ? `${att.name} (${att.email})` : att.email}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 justify-end border-t border-white/[0.04] pt-4 mt-6">
+                <button
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to delete this event?")) {
+                      setDeletingEventId(selectedEventPreview.id);
+                      try {
+                        const res = await apiFetch(`/api/calendar/events/${selectedEventPreview.id}`, {
+                          method: "DELETE"
+                        });
+                        if (res.ok) {
+                          setSelectedEventPreview(null);
+                          void fetchEvents(weekStart);
+                        } else {
+                          const json = (await res.json()) as { error?: { message?: string } } | null;
+                          alert(json?.error?.message ?? "Failed to delete event");
+                        }
+                      } catch (err) {
+                        const errMsg = err instanceof Error ? err.message : String(err);
+                        alert("Error deleting event: " + errMsg);
+                      } finally {
+                        setDeletingEventId(null);
                       }
-                    } catch (err: any) {
-                      alert("Error deleting event: " + err.message);
-                    } finally {
-                      setDeletingEventId(null);
                     }
-                  }
-                }}
-                disabled={deletingEventId !== null}
-                className="rounded-xl border border-red-500/20 bg-red-500/5 hover:border-red-500/40 hover:bg-red-500/10 px-4 py-2 text-[10px] font-bold text-red-400 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
-              >
-                {deletingEventId === selectedEventPreview.id ? "DELETING..." : "DELETE EVENT"}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+                  }}
+                  disabled={deletingEventId !== null}
+                  className="rounded-xl border border-red-500/20 bg-red-500/5 hover:border-red-500/40 hover:bg-red-500/10 px-4 py-2 text-[10px] font-bold text-red-400 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  {deletingEventId === selectedEventPreview.id ? "DELETING..." : "DELETE EVENT"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

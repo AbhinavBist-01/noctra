@@ -18,9 +18,6 @@ import {
   Gear,
   CaretUp,
   Robot,
-  PaperPlaneTilt,
-  PencilSimpleLine,
-  Tray,
 } from "@phosphor-icons/react";
 
 type NavItem = {
@@ -59,17 +56,29 @@ type CalendarEvent = {
   end: string;
 };
 
+interface GmailMessageData {
+  id: string;
+  labels?: string[];
+}
+
+interface AuthSession {
+  user: {
+    email: string;
+    name?: string;
+  };
+}
+
 // Custom backlit bat wing emblem
 function BatLogoMark({ className = "h-7 w-7" }: { className?: string }) {
   return (
     <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
       {/* Backlit amber glow */}
-      <div className="absolute -inset-1 bg-amber-500/10 blur-sm rounded-full pointer-events-none" />
+      <div className="absolute -inset-1.5 bg-amber-500/15 blur-[6px] rounded-full pointer-events-none" />
       <svg
         viewBox="0 0 40 40"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="relative h-full w-full text-amber-500 fill-current drop-shadow-[0_0_4px_rgba(245,158,11,0.4)] transition-all duration-300"
+        className="relative h-full w-full text-amber-500 fill-current drop-shadow-[0_0_6px_rgba(245,158,11,0.5)] transition-all duration-300"
       >
         <path
           d="M 26 8 
@@ -89,7 +98,7 @@ function BatLogoMark({ className = "h-7 w-7" }: { className?: string }) {
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const [session, setSession] = useState<{ user: { email: string; name?: string } } | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [todayAgenda, setTodayAgenda] = useState<CalendarEvent[]>([]);
   
@@ -102,21 +111,23 @@ export function DashboardSidebar() {
       // Fetch unread count
       const mailRes = await apiFetch("/api/gmail/messages?limit=50");
       if (mailRes.ok) {
-        const mailJson = await mailRes.json();
-        const msgs = mailJson.data?.messages ?? mailJson.data ?? [];
-        // FIX: Gmail uses "UNREAD" to denote unread messages
-        const unreads = msgs.filter((m: any) => m.labels?.includes("UNREAD")).length;
+        const mailJson = (await mailRes.json()) as { data?: { messages?: GmailMessageData[] } | GmailMessageData[] };
+        const data = mailJson.data;
+        const msgs = Array.isArray(data) ? data : (data?.messages ?? []);
+        // Gmail uses "UNREAD" to denote unread messages
+        const unreads = msgs.filter((m) => m.labels?.includes("UNREAD")).length;
         setUnreadCount(unreads);
       }
 
       // Fetch today's agenda
       const calRes = await apiFetch("/api/calendar/events");
       if (calRes.ok) {
-        const calJson = await calRes.json();
-        const eventsList = calJson.data?.events ?? calJson.data ?? [];
+        const calJson = (await calRes.json()) as { data?: { events?: CalendarEvent[] } | CalendarEvent[] };
+        const data = calJson.data;
+        const eventsList = Array.isArray(data) ? data : (data?.events ?? []);
         const todayStr = new Date().toDateString();
         const filtered = eventsList
-          .filter((e: any) => new Date(e.start).toDateString() === todayStr)
+          .filter((e) => new Date(e.start).toDateString() === todayStr)
           .slice(0, 4);
         setTodayAgenda(filtered);
       }
@@ -126,12 +137,14 @@ export function DashboardSidebar() {
   }, []);
 
   useEffect(() => {
-    authClient.getSession().then((res) => {
-      if (res.data) setSession(res.data as any);
+    void authClient.getSession().then((res) => {
+      if (res.data) {
+        setSession({ user: res.data.user });
+      }
     });
 
-    fetchSidebarData();
-    const interval = setInterval(fetchSidebarData, 15000);
+    void fetchSidebarData();
+    const interval = setInterval(() => { void fetchSidebarData(); }, 15000);
     return () => clearInterval(interval);
   }, [fetchSidebarData]);
 
@@ -141,17 +154,17 @@ export function DashboardSidebar() {
       try {
         await apiFetch("/api/gmail/refresh", { method: "POST" });
         // Immediately fetch the fresh unread counts after a successful refresh
-        fetchSidebarData();
+        void fetchSidebarData();
       } catch {
         // silent fail
       }
     };
     
     // Trigger an initial refresh 2 seconds after the dashboard mounts
-    const initialTimeout = setTimeout(triggerBackgroundRefresh, 2000);
+    const initialTimeout = setTimeout(() => { void triggerBackgroundRefresh(); }, 2000);
     
     // Trigger refreshes every 45 seconds thereafter
-    const interval = setInterval(triggerBackgroundRefresh, 45000);
+    const interval = setInterval(() => { void triggerBackgroundRefresh(); }, 45000);
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(interval);
@@ -188,18 +201,18 @@ export function DashboardSidebar() {
   return (
     <motion.nav 
       animate={{ width: isCollapsed ? 76 : 240 }}
-      transition={{ type: "spring", stiffness: 350, damping: 28 }}
-      className="relative flex h-full flex-col border-r border-white/[0.04] bg-[#020206] p-4 gap-6 select-none overflow-visible shrink-0 z-20"
+      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      className="relative flex h-full flex-col border-r border-white/[0.04] bg-[#020208] p-4 gap-6 select-none overflow-visible shrink-0 z-20"
     >
       {/* Brand logo header */}
       <div className="flex items-center justify-between px-2 pt-2">
-        <Link href="/dashboard" className="flex items-center gap-2.5 outline-none">
-          <BatLogoMark className="h-7 w-7" />
+        <Link href="/dashboard" className="flex items-center gap-2.5 outline-none group/brand">
+          <BatLogoMark className="h-7 w-7 transition-transform group-hover/brand:scale-105" />
           {!isCollapsed && (
             <motion.span 
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-base font-extrabold tracking-tight font-display text-transparent bg-clip-text bg-gradient-to-r from-zinc-150 to-zinc-400"
+              className="text-lg font-extrabold tracking-tight font-display text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400"
             >
               Noctra
             </motion.span>
@@ -210,7 +223,7 @@ export function DashboardSidebar() {
         {!isCollapsed && (
           <button
             onClick={() => setIsCollapsed(true)}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-200 transition-colors border border-transparent hover:border-white/[0.04]"
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-250 transition-all border border-transparent hover:border-white/[0.04] cursor-pointer"
           >
             <CaretLeft size={14} weight="bold" />
           </button>
@@ -220,22 +233,22 @@ export function DashboardSidebar() {
       {isCollapsed && (
         <button
           onClick={() => setIsCollapsed(false)}
-          className="mx-auto rounded-xl bg-white/[0.02] p-2 text-zinc-500 hover:bg-white/[0.05] hover:text-zinc-200 transition-all border border-white/[0.04] shadow-sm hover:scale-[1.03]"
+          className="mx-auto rounded-xl bg-white/[0.02] p-2 text-zinc-550 hover:bg-white/[0.05] hover:text-zinc-200 transition-all border border-white/[0.04] shadow-md hover:scale-[1.03] cursor-pointer"
         >
           <CaretRight size={14} weight="bold" />
         </button>
       )}
 
       {/* Main Navigation Links — grouped by section */}
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
         {navSections.map((section) => (
-          <div key={section.title} className="flex flex-col gap-1">
+          <div key={section.title} className="flex flex-col gap-1.5">
             {/* Section label */}
             {!isCollapsed && (
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="px-4 pb-1 text-[9px] font-mono font-bold uppercase tracking-[0.18em] text-zinc-600"
+                className="px-4 pb-1 text-[10px] font-display font-bold uppercase tracking-[0.16em] text-zinc-650"
               >
                 {section.title}
               </motion.span>
@@ -248,34 +261,34 @@ export function DashboardSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`relative flex items-center justify-between rounded-xl py-3 transition-colors duration-250 ${
+                  className={`relative flex items-center justify-between rounded-xl py-2.5 transition-all duration-200 group/nav ${
                     active
-                      ? "text-amber-500 font-bold"
-                      : "text-zinc-450 hover:text-zinc-200"
+                      ? "text-amber-500 font-semibold"
+                      : "text-zinc-400 hover:text-zinc-150"
                   } ${isCollapsed ? "px-0 justify-center" : "px-4"}`}
                 >
-                  {/* Sliding active pill indicator */}
+                  {/* Sliding active pill indicator with premium gradient & border */}
                   {active && (
                     <motion.div
                       layoutId="active-sidebar-pill"
-                      className="absolute inset-0 bg-white/[0.02] border border-white/[0.04] rounded-xl -z-10 shadow-sm"
-                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-amber-500/[0.02] to-transparent border-l-2 border-amber-500 rounded-r-xl -z-10 shadow-sm"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
 
                   <div className="flex items-center gap-3">
-                    <span className={active ? "text-amber-500" : "text-zinc-500"}>{item.icon}</span>
+                    <span className={`transition-transform duration-200 group-hover/nav:scale-105 ${active ? "text-amber-500" : "text-zinc-500 group-hover/nav:text-zinc-350"}`}>{item.icon}</span>
                     {!isCollapsed && (
-                      <span className="text-xs font-mono font-bold uppercase tracking-wider">{item.label}</span>
+                      <span className="text-[13px] font-sans tracking-wide">{item.label}</span>
                     )}
                   </div>
 
                   {!isCollapsed && hasCount && (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold ${
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-mono font-bold ${
                         active
-                          ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                          : "bg-white/[0.02] text-zinc-550 border border-white/[0.04]"
+                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                          : "bg-white/[0.02] text-zinc-500 border border-white/[0.04]"
                       }`}
                     >
                       {unreadCount}
@@ -292,8 +305,8 @@ export function DashboardSidebar() {
       {!isCollapsed && (
         <div className="flex flex-col gap-4 px-2 border-t border-white/[0.04] pt-6">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-500">Today&apos;s Agenda</span>
-            <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-550 hover:text-zinc-300 select-none">
+            <span className="text-[10px] font-display font-bold uppercase tracking-wider text-zinc-500">Today&apos;s Agenda</span>
+            <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-550 hover:text-zinc-350 select-none">
               <input 
                 type="checkbox" 
                 checked={showEventsOption}
@@ -310,18 +323,19 @@ export function DashboardSidebar() {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="space-y-3.5 overflow-hidden"
+                className="space-y-3 overflow-hidden"
               >
                 {todayAgenda.length === 0 ? (
-                  <span className="text-[10px] text-zinc-600 font-mono">No events scheduled</span>
+                  <span className="text-[11px] text-zinc-600 font-mono">No events scheduled</span>
                 ) : (
                   todayAgenda.map((evt) => (
                     <motion.div 
                       key={evt.id} 
-                      className="flex flex-col gap-0.5 border-l-2 border-amber-500/20 pl-2.5"
+                      className="flex flex-col gap-0.5 border-l-2 border-amber-500/30 pl-3 group/agenda"
                       whileHover={{ x: 2 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
                     >
-                      <span className="truncate text-xs font-semibold text-zinc-300 tracking-wide">{evt.title}</span>
+                      <span className="truncate text-xs font-medium text-zinc-350 tracking-wide group-hover/agenda:text-zinc-200 transition-colors">{evt.title}</span>
                       <span className="text-[10px] text-zinc-550 font-mono">{formatEventTime(evt.start)}</span>
                     </motion.div>
                   ))
@@ -332,8 +346,8 @@ export function DashboardSidebar() {
         </div>
       )}
 
-      {/* ── Bottom User Card ── */}
-      <div className="mt-auto border-t border-white/[0.04] pt-3" ref={userCardRef}>
+      {/* Bottom User Card */}
+      <div className="mt-auto border-t border-white/[0.04] pt-3.5" ref={userCardRef}>
         {session ? (
           <div className="relative">
             {/* Settings Popover */}
@@ -344,9 +358,9 @@ export function DashboardSidebar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                  className="absolute bottom-full left-0 right-0 mb-2 z-50"
+                  className="absolute bottom-full left-0 right-0 mb-3 z-50"
                 >
-                  <div className="rounded-2xl border border-white/[0.06] bg-zinc-950/98 shadow-2xl shadow-black/60 backdrop-blur-xl overflow-hidden">
+                  <div className="rounded-2xl border border-white/[0.06] bg-zinc-950/98 shadow-2xl shadow-black/80 backdrop-blur-xl overflow-hidden">
                     {/* User identity header */}
                     <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.04]">
                       <div className="relative shrink-0">
@@ -360,7 +374,7 @@ export function DashboardSidebar() {
                       </div>
                       <div className="flex-1 min-w-0">
                         {session.user.name && (
-                          <div className="truncate text-[11px] font-bold font-mono text-zinc-200 tracking-wide">
+                          <div className="truncate text-xs font-bold font-sans text-zinc-200 tracking-wide">
                             {session.user.name}
                           </div>
                         )}
@@ -373,18 +387,18 @@ export function DashboardSidebar() {
                     {/* Settings links */}
                     <div className="flex flex-col py-1.5 px-1.5 gap-0.5">
                       {[
-                        { icon: <UserCircle size={14} />, label: "Profile", href: "/dashboard/settings" },
-                        { icon: <Bell size={14} />, label: "Notifications", href: "/dashboard/settings" },
-                        { icon: <Palette size={14} />, label: "Appearance", href: "/dashboard/settings" },
-                        { icon: <Gear size={14} />, label: "Settings", href: "/dashboard/settings" },
+                        { icon: <UserCircle size={15} />, label: "Profile", href: "/dashboard/settings" },
+                        { icon: <Bell size={15} />, label: "Notifications", href: "/dashboard/settings" },
+                        { icon: <Palette size={15} />, label: "Appearance", href: "/dashboard/settings" },
+                        { icon: <Gear size={15} />, label: "Settings", href: "/dashboard/settings" },
                       ].map((item) => (
                         <Link
                           key={item.label}
                           href={item.href}
                           onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[11px] font-mono font-semibold text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] transition-all group"
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-sans text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] transition-all group/pop"
                         >
-                          <span className="text-zinc-500 group-hover:text-amber-500 transition-colors">{item.icon}</span>
+                          <span className="text-zinc-500 group-hover/pop:text-amber-500 transition-colors">{item.icon}</span>
                           {item.label}
                         </Link>
                       ))}
@@ -394,15 +408,15 @@ export function DashboardSidebar() {
                     <div className="border-t border-white/[0.04] px-1.5 py-1.5">
                       <button
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-[11px] font-mono font-semibold text-zinc-500 hover:text-red-400 hover:bg-red-500/5 transition-all group cursor-pointer"
+                        className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-sans text-zinc-500 hover:text-red-400 hover:bg-red-500/5 transition-all group/pop cursor-pointer"
                       >
-                        <SignOut size={14} className="group-hover:text-red-400 transition-colors" />
+                        <SignOut size={15} className="group-hover/pop:text-red-400 transition-colors" />
                         Sign out
                       </button>
                     </div>
                   </div>
                   {/* Arrow pointer */}
-                  <div className="absolute -bottom-1.5 left-5 h-3 w-3 rotate-45 rounded-sm border-b border-r border-white/[0.06] bg-zinc-950/98" />
+                  <div className="absolute -bottom-1.5 left-5 h-3 w-3 rotate-45 rounded-sm border-b border-r border-white/[0.06] bg-zinc-950" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -412,15 +426,15 @@ export function DashboardSidebar() {
               onClick={() => setUserMenuOpen((v) => !v)}
               className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-200 cursor-pointer border ${
                 userMenuOpen
-                  ? "bg-white/[0.05] border-white/[0.08] text-zinc-200"
+                  ? "bg-white/[0.05] border-white/[0.08] text-zinc-200 shadow-inner"
                   : "bg-white/[0.02] border-white/[0.04] text-zinc-400 hover:bg-white/[0.04] hover:border-white/[0.06] hover:text-zinc-200"
               } ${isCollapsed ? "justify-center px-0" : ""}`}
               title={isCollapsed ? session.user.email : undefined}
             >
               {/* Avatar */}
               <div className="relative shrink-0">
-                <div className={`${isCollapsed ? "h-7 w-7" : "h-7 w-7"} rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/20 flex items-center justify-center`}>
-                  <span className="text-[9px] font-extrabold font-mono text-amber-500">
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/20 flex items-center justify-center">
+                  <span className="text-[10px] font-extrabold font-mono text-amber-500">
                     {userInitials}
                   </span>
                 </div>
@@ -430,15 +444,15 @@ export function DashboardSidebar() {
               {!isCollapsed && (
                 <>
                   <div className="flex-1 text-left min-w-0">
-                    <div className="truncate text-[10px] font-bold font-mono text-zinc-300 tracking-wide leading-tight">
+                    <div className="truncate text-xs font-semibold text-zinc-300 tracking-wide leading-tight">
                       {session.user.name ?? session.user.email?.split("@")[0]}
                     </div>
-                    <div className="truncate text-[9px] font-mono text-zinc-600 leading-tight">
+                    <div className="truncate text-[9.5px] font-mono text-zinc-650 leading-tight">
                       {session.user.email}
                     </div>
                   </div>
                   <CaretUp
-                    size={11}
+                    size={12}
                     weight="bold"
                     className={`shrink-0 text-zinc-600 transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`}
                   />
@@ -449,7 +463,7 @@ export function DashboardSidebar() {
         ) : (
           <Link
             href="/signin"
-            className={`block rounded-xl bg-amber-500 hover:bg-amber-600 py-2.5 text-center text-xs font-mono font-bold text-zinc-950 transition-colors ${
+            className={`block rounded-xl bg-amber-500 hover:bg-amber-600 py-2.5 text-center text-xs font-sans font-bold text-zinc-950 transition-all hover:scale-[1.02] active:scale-95 ${
               isCollapsed ? "px-0" : "px-4"
             }`}
           >

@@ -75,10 +75,26 @@ type ChatMessage =
 const uid = () => crypto.randomUUID();
 
 const suggestions = [
-  { label: "Send an email", icon: <EnvelopeSimple size={13} weight="bold" /> },
-  { label: "Schedule a meeting", icon: <CalendarBlank size={13} weight="bold" /> },
-  { label: "Draft a reply", icon: <Lightning size={13} weight="bold" /> },
-  { label: "Create a calendar event", icon: <CalendarBlank size={13} weight="bold" /> },
+  {
+    label: "Send a status update email",
+    desc: "Draft and send an update about project status.",
+    icon: <EnvelopeSimple size={14} weight="duotone" />,
+  },
+  {
+    label: "Schedule a client sync tomorrow at 3pm",
+    desc: "Create a calendar event and send an invite.",
+    icon: <CalendarBlank size={14} weight="duotone" />,
+  },
+  {
+    label: "Draft a reply about being late",
+    desc: "Quickly reply to the last email with a notice.",
+    icon: <Lightning size={14} weight="duotone" />,
+  },
+  {
+    label: "Summarize my unread emails",
+    desc: "Get a quick breakdown of your latest messages.",
+    icon: <Robot size={14} weight="duotone" />,
+  },
 ];
 
 const msgVariants = {
@@ -290,9 +306,33 @@ export default function AgentPage() {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    setIsMounted(true);
+    try {
+      const saved = localStorage.getItem("noctra_agent_conversations");
+      if (saved) {
+        setMessages(JSON.parse(saved) as ChatMessage[]);
+      }
+    } catch (e) {
+      console.error("Failed to load conversations:", e);
+    }
+  }, []);
+
+  // Save to localStorage when messages change
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      localStorage.setItem("noctra_agent_conversations", JSON.stringify(messages));
+    } catch (e) {
+      console.error("Failed to save conversations:", e);
+    }
+  }, [messages, isMounted]);
 
   /* Auto-scroll ---------------------------------------------------- */
   useEffect(() => {
@@ -324,12 +364,29 @@ export default function AgentPage() {
         const res = await apiFetch("/api/command/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: text.trim() }),
+          body: JSON.stringify({
+            command: text.trim(),
+            history: messages.map((m) => {
+              if (m.role === "user") {
+                return { role: "user", content: m.text };
+              } else {
+                let content = "";
+                if (m.kind === "preview") {
+                  content = `Actions prepared: ${JSON.stringify(m.actions)}. Warnings: ${m.warnings.join(", ")}`;
+                } else if (m.kind === "result") {
+                  content = `Execution result: ${JSON.stringify(m.results)}`;
+                } else if (m.kind === "error") {
+                  content = `Error: ${m.error}`;
+                }
+                return { role: "assistant", content };
+              }
+            }),
+          }),
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => null);
-          throw new Error(errData?.error ?? `Preview failed (${res.status})`);
+          throw new Error((errData as { error?: string })?.error ?? `Preview failed (${res.status})`);
         }
 
         const json = (await res.json()) as { data: { actions: CommandPreviewAction[]; warnings?: string[] } };
@@ -356,7 +413,7 @@ export default function AgentPage() {
         setIsSending(false);
       }
     },
-    [isSending],
+    [isSending, messages],
   );
 
   /* Confirm actions ------------------------------------------------ */
@@ -427,7 +484,27 @@ export default function AgentPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-full bg-[#020206] overflow-hidden">
+    <div className="flex flex-col h-full bg-[#020208] overflow-hidden">
+      {/* Top Header Bar */}
+      <div className="relative z-10 flex items-center justify-between border-b border-white/[0.04] bg-[#020208]/85 px-6 py-4 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <Robot size={20} className="text-amber-500" />
+          <span className="font-display font-extrabold text-sm text-zinc-150 uppercase tracking-wide">Noctra AI Copilot</span>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={() => {
+              setMessages([]);
+              try {
+                localStorage.removeItem("noctra_agent_conversations");
+              } catch { /* ignore */ }
+            }}
+            className="rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 px-4 py-2 text-xs font-mono font-bold text-zinc-400 transition-all cursor-pointer shadow-sm"
+          >
+            Clear Conversation
+          </button>
+        )}
+      </div>
       {/* Scrollable chat area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 pt-6 pb-8">
         <div className="mx-auto max-w-2xl space-y-4">
@@ -463,6 +540,32 @@ export default function AgentPage() {
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">
                     Online &amp; Ready
                   </span>
+                </div>
+
+                {/* Descriptive Suggestions Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-xl mt-6">
+                  {suggestions.map((s) => (
+                    <motion.button
+                      key={s.label}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setInput(s.label);
+                        inputRef.current?.focus();
+                      }}
+                      className="flex flex-col gap-2 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors">
+                        {s.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-zinc-200">{s.label}</h4>
+                        <p className="text-[10px] text-zinc-550 font-mono mt-1 leading-normal">
+                          {s.desc}
+                        </p>
+                      </div>
+                    </motion.button>
+                  ))}
                 </div>
               </motion.div>
             )}
@@ -563,24 +666,6 @@ export default function AgentPage() {
       {/* Bottom bar — pinned */}
       <div className="w-full bg-[#020206] border-t border-white/[0.03] pt-4 pb-6 px-4 sm:px-6 shrink-0">
         <div className="mx-auto max-w-2xl space-y-3">
-          {/* Suggestion chips */}
-          <div className="flex flex-wrap gap-2 justify-center">
-            {suggestions.map((s) => (
-              <motion.button
-                key={s.label}
-                whileHover={{ scale: 1.04, y: -1 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  setInput(s.label);
-                  inputRef.current?.focus();
-                }}
-                className="flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] px-3.5 py-1.5 text-[11px] font-mono font-semibold text-zinc-500 hover:text-zinc-300 hover:border-amber-500/20 hover:bg-amber-500/[0.04] transition-colors cursor-pointer"
-              >
-                <span className="text-amber-500/50">{s.icon}</span>
-                {s.label}
-              </motion.button>
-            ))}
-          </div>
 
           {/* Input bar */}
           <motion.div

@@ -269,6 +269,7 @@ const parseReferentialAction = (
 // LLM-based command parser using agent
 export const parseCommandWithAgent = async (
   command: string,
+  history?: Array<{ role: "user" | "assistant" | "system"; content: string }>,
 ): Promise<{ actions: CommandPreviewAction[]; warnings: string[] }> => {
   actionCounter = 0;
 
@@ -313,6 +314,10 @@ Email actions: Extract recipient emails and subject. If the email body is not fu
 If unsure about calendar time, default to 1 hour from now.
 For calendar attendees, extract emails only.`,
       },
+      ...(history || []).map((h) => ({
+        role: h.role === "assistant" ? "assistant" as const : h.role === "system" ? "system" as const : "user" as const,
+        content: h.content,
+      })),
       {
         role: "user",
         content: `Parse this command: "${command}"`,

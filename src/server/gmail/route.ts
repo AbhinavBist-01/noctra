@@ -16,7 +16,7 @@ import {
   SendGmailDraftParamsSchema,
   SendGmailMessageRequestSchema,
 } from "@/shared/gmail";
-import { summarizeEmail } from "./summarize";
+import { summarizeEmail, summarizeEmailsBatch } from "./summarize";
 import { validate } from "../lib/validation";
 
 export const gmailRoute = Router();
@@ -111,6 +111,34 @@ gmailRoute.post("/summarize", async (req, res, next) => {
       return;
     }
     const summary = await summarizeEmail(message);
+    res.status(200).json({ data: { summary } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+gmailRoute.post("/summarize-batch", async (req, res, next) => {
+  try {
+    const { limit } = req.body as { limit?: number };
+    const batchLimit = limit ?? 5;
+
+    // Fetch the latest emails
+    const result = await getGmailMessages({ limit: batchLimit });
+    const messageSummaries = result.messages;
+
+    // Fetch details for each message to get the bodies
+    const messagesWithDetails = await Promise.all(
+      messageSummaries.map(async (m) => {
+        try {
+          const detail = await getGmailMessageById(m.id);
+          return detail || m;
+        } catch {
+          return m;
+        }
+      })
+    );
+
+    const summary = await summarizeEmailsBatch(messagesWithDetails as any);
     res.status(200).json({ data: { summary } });
   } catch (error) {
     next(error);

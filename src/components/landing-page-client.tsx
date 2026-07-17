@@ -16,11 +16,7 @@ import {
   GithubLogo,
   TwitterLogo,
   LinkedinLogo,
-  Terminal,
-  ArrowsLeftRight,
-  Lightning,
-  Sliders,
-  ShieldCheck
+  Terminal
 } from "@phosphor-icons/react";
 import AnimatedRays from "@/components/ui/animated-rays";
 import MorphText from "@/components/ui/morph-text";
@@ -786,7 +782,7 @@ export default function LandingPageClient() {
             <div>
               <h4 className="text-base font-bold text-zinc-200">Type Your Command</h4>
               <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Type naturally in plain English. Write simple directives like "Draft sick leave to my manager" or compound flows like "Email client and book a sync".
+                Type naturally in plain English. Write simple directives like &quot;Draft sick leave to my manager&quot; or compound flows like &quot;Email client and book a sync&quot;.
               </p>
             </div>
           </div>

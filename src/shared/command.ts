@@ -3,6 +3,10 @@ import { type CalendarAttendee } from "./calendar";
 
 export type CommandPreviewRequest = {
   command: string;
+  history?: Array<{
+    role: "user" | "assistant" | "system";
+    content: string;
+  }>;
 };
 
 export type CommandActionType =
@@ -56,6 +60,14 @@ export type CommandExecuteResponse = {
 
 export const PreviewRequestSchema = z.object({
   command: z.string().min(1),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant", "system"]),
+        content: z.string(),
+      })
+    )
+    .optional(),
 });
 
 export const ActionSchema = z.object({
