@@ -3,12 +3,14 @@ import type { CreateCalendarInviteRequest } from "@/shared/calendar";
 import { getTenant } from "../corsair/tenant";
 import { mapCalendarEventSummary } from "./mapper";
 import { AppError } from "../lib/app-error";
+import { telemetryService } from "../telemetry/service";
 
 export const getCalendarEvents = async (input: {
   query?: string;
   weekStart?: string;
   weekEnd?: string;
 }) => {
+  const startTime = Date.now();
   try {
     const tenant = getTenant();
 
@@ -19,10 +21,20 @@ export const getCalendarEvents = async (input: {
 
     const raw = await tenant.googlecalendar.api.events.getMany(params as any);
     const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
+
+    const duration = Date.now() - startTime;
+    telemetryService.recordToolCall("code_exec", duration); // Calendar API calls
+    telemetryService.recordActivity(
+      "CalendarService",
+      `Fetched ${list.length} events from calendar`,
+      "done",
+      duration
+    );
+
     return {
       events: list.map((e: any) => mapCalendarEventSummary(e.data ?? e)),
     };
-  } catch (error) {
+  } catch (error: any) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to list events: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -51,6 +63,7 @@ export const refreshCalendarEvents = async () => {
 export const createCalendarInvite = async (
   input: CreateCalendarInviteRequest,
 ) => {
+  const startTime = Date.now();
   try {
     const tenant = getTenant();
 
@@ -68,8 +81,18 @@ export const createCalendarInvite = async (
       },
     };
     const event = await tenant.googlecalendar.api.events.create(params as any);
+
+    const duration = Date.now() - startTime;
+    telemetryService.recordToolCall("code_exec", duration); // Calendar API calls
+    telemetryService.recordActivity(
+      "CalendarService",
+      `Created calendar invite: "${input.title}"`,
+      "done",
+      duration
+    );
+
     return event;
-  } catch (error) {
+  } catch (error: any) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to create invite: ${error instanceof Error ? error.message : "Unknown error"}`,

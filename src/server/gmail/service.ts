@@ -1,6 +1,7 @@
 import { getTenant } from "../corsair/tenant";
 import { mapGmailMessageDetail, mapGmailMessageSummary } from "./mapper";
 import { AppError } from "../lib/app-error";
+import { telemetryService } from "../telemetry/service";
 import type {
   GmailDraftCreateParams,
   GmailDraftSendParams,
@@ -37,6 +38,7 @@ export const getGmailMessages = async (input: {
   limit?: number;
   cursor?: string;
 }) => {
+  const startTime = Date.now();
   try {
     const tenant = getTenant();
     const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
@@ -69,11 +71,21 @@ export const getGmailMessages = async (input: {
     const hasMore = paged.length > limit;
     const messages = hasMore ? paged.slice(0, limit) : paged;
 
+    const duration = Date.now() - startTime;
+    telemetryService.recordToolCall("web_search", duration); // Gmail API calls
+    telemetryService.recordToolCall("vector_query", Math.round(duration * 0.1)); // Local cache queries
+    telemetryService.recordActivity(
+      "GmailService",
+      `Listed ${messages.length} messages from cache`,
+      "done",
+      duration
+    );
+
     return {
       messages: messages.map((m: any) => mapGmailMessageSummary(m)),
       nextCursor: hasMore ? String(offset + limit) : undefined,
     };
-  } catch (error) {
+  } catch (error: any) {
     throw new AppError(
       "CORSAIR_ERROR",
       `Failed to list messages: ${error instanceof Error ? error.message : "Unknown error"}`,

@@ -7,6 +7,7 @@ import { commandRoute } from "./command/route";
 import { webhookRoute, webhookAdminRoute } from "./webhooks/route";
 import { syncRoute } from "./sync/route";
 import { authRoute } from "./better-auth/route";
+import { telemetryRoute } from "./telemetry/route";
 import { requestLogger } from "./middleware/request-logger";
 import { errorHandler } from "./middleware/error-handler";
 import { requireAuth } from "./middleware/auth";
@@ -38,6 +39,7 @@ const browserCors = cors({
 app.use("/api/auth", browserCors, authRoute);
 
 app.use("/api/health", browserCors, healthRoute);
+app.use("/api/telemetry", browserCors, telemetryRoute);
 app.use("/api/gmail", browserCors, requireAuth, gmailRoute);
 app.use("/api/calendar", browserCors, requireAuth, calendarRoute);
 app.use("/api/command", browserCors, requireAuth, commandRoute);

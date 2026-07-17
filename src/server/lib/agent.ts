@@ -1,5 +1,6 @@
 import { OpenAI } from "openai";
 import { GoogleGenAI } from "@google/genai";
+import { telemetryService } from "../telemetry/service";
 
 export type AgentMessage = {
   role: "system" | "user" | "assistant";
@@ -49,6 +50,7 @@ export async function agent(
   opts: AgentOptions = {},
 ): Promise<string> {
   const { openai, gemini } = getClient();
+  const startTime = Date.now();
 
   if (gemini) {
     try {
@@ -76,6 +78,11 @@ export async function agent(
         },
       });
 
+      const latency = Date.now() - startTime;
+      const promptTokens = response.usageMetadata?.promptTokenCount ?? 0;
+      const completionTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
+      telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
+
       return (response.text ?? "").trim();
     } catch (error) {
       throw new Error(
@@ -94,6 +101,11 @@ export async function agent(
           content: m.content,
         })),
       });
+
+      const latency = Date.now() - startTime;
+      const promptTokens = response.usage?.prompt_tokens ?? 0;
+      const completionTokens = response.usage?.completion_tokens ?? 0;
+      telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
 
       return (response.choices?.[0]?.message?.content ?? "").trim();
     } catch (error) {

@@ -18,6 +18,7 @@ import {
   Globe,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/server/lib/api-client";
 
 /* ──────────────────────────────────────────────────────
    Niche: AI Agent Workspace
@@ -62,7 +63,7 @@ export function FeatCard({ title, description, children, className = "" }: FeatC
    Minimalist precise node graph with real-time task flows
    ───────────────────────────────────────────── */
 
-type ActiveStep = 'request' | 'router' | 'agent' | 'memory' | 'tools' | 'response';
+type ActiveStep = 'request' | 'router' | 'agent' | 'memory' | 'tools' | 'response' | 'idle';
 
 const VW = 320;
 const VH = 240;
@@ -175,10 +176,15 @@ const NODE_COLORS = {
   },
 };
 
-export function Card1() {
+export function Card1({ activeStep }: { activeStep?: ActiveStep }) {
   const [step, setStep] = useState<ActiveStep>("request");
 
   useEffect(() => {
+    if (activeStep && activeStep !== "idle") {
+      setStep(activeStep);
+      return;
+    }
+
     const steps: ActiveStep[] = ["request", "router", "agent", "memory", "tools", "response"];
     let idx = 0;
     const interval = setInterval(() => {
@@ -186,7 +192,7 @@ export function Card1() {
       setStep(steps[idx] ?? "request");
     }, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeStep]);
 
   const isNodeActive = (nodeId: string) => {
     switch (step) {
@@ -324,7 +330,7 @@ export function Card1() {
 /* ─────────────────────────────────────────────
    Card2 – Live Token / Cost Monitor
    ───────────────────────────────────────────── */
-export function Card2() {
+export function Card2({ tokens }: { tokens?: { total: number; cost: number } }) {
   const bars = [45, 75, 35, 85, 60, 95, 50];
   const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
@@ -338,14 +344,21 @@ export function Card2() {
     return () => clearInterval(interval);
   }, []);
 
+  const totalTokens = tokens?.total ?? 12450;
+  const formattedTokens = totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : `${totalTokens}`;
+  const totalCost = tokens?.cost ?? 0.042;
+  const formattedCost = `$${totalCost.toFixed(3)}`;
+
+  const stats = [
+    { label: "Total Tokens", value: formattedTokens, trend: "+8%" },
+    { label: "Cost/run", value: formattedCost, trend: "-3%" },
+  ];
+
   return (
     <div className="w-full h-full flex flex-col gap-3.5 justify-between p-1">
       {/* Stats row with sliding offset */}
       <div className="flex gap-3 pt-[0.25rem] pr-[0.25rem] pb-0.5 pl-0.5">
-        {[
-          { label: "Tokens/min", value: "12.4k", trend: "+8%" },
-          { label: "Cost/run", value: "$0.042", trend: "-3%" },
-        ].map((s, i) => {
+        {stats.map((s, i) => {
           const isActive = i === activeIdx || hoveredIdx === i;
 
           return (
@@ -479,8 +492,8 @@ const STATUS_ICONS = {
   idle: { icon: Minus, color: "text-zinc-700", bg: "bg-white/[0.01]", gradient: "bg-gradient-to-b from-zinc-800 to-zinc-950", border: "border-zinc-900" },
 };
 
-export function Card3() {
-  const logs = [
+export function Card3({ activities }: { activities?: any[] }) {
+  const staticLogs = [
     { agent: "Planner", action: "Decomposed task into 4 sub-goals", status: "done", t: "0.2s" },
     { agent: "Researcher", action: "Synced inbox with server REST API", status: "done", t: "1.4s" },
     { agent: "SyncService", action: "Auto-fetching Gmail SENT mail pipelines…", status: "running", t: "3.1s" },
@@ -488,6 +501,7 @@ export function Card3() {
     { agent: "Scheduler", action: "Idle — queued", status: "idle", t: "—" },
   ];
 
+  const logs = activities && activities.length > 0 ? activities : staticLogs;
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
@@ -615,27 +629,53 @@ const RETRIEVAL_QUERIES = [
   { ns: "docs", q: "BetterAuth session endpoint config", t: "7.2s" },
 ];
 
-export function Card4() {
-  const namespaces = [
+export function Card4({ 
+  namespaces: liveNamespaces, 
+  recentQueries: liveQueries,
+  activeStep 
+}: { 
+  namespaces?: Array<{ name: string; hits: number; fill: number }>;
+  recentQueries?: Array<{ ns: string; q: string; t: string }>;
+  activeStep?: ActiveStep;
+}) {
+  const defaultNamespaces = [
     { name: "codebase", hits: 342, fill: 88 },
     { name: "docs", hits: 218, fill: 56 },
     { name: "slack", hits: 97, fill: 25 },
     { name: "notion", hits: 54, fill: 14 },
   ];
 
+  const namespaces = liveNamespaces ?? defaultNamespaces;
+
+  const defaultQueries = [
+    { ns: "codebase", q: "google OAuth client sync route", t: "0.2s" },
+    { ns: "docs", q: "Gmail IMAP refresh sync endpoints", t: "1.1s" },
+    { ns: "codebase", q: "Gmail database drafts mapping schema", t: "2.4s" },
+    { ns: "slack", q: "sent email api integration #dev", t: "4.0s" },
+    { ns: "notion", q: "Command Bar preview action objects", t: "5.8s" },
+    { ns: "docs", q: "BetterAuth session endpoint config", t: "7.2s" },
+  ];
+
+  const queries = liveQueries && liveQueries.length > 0 ? liveQueries : defaultQueries;
+
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    if (activeStep && activeStep !== "idle") {
+      setTick(0);
+      return;
+    }
+
     const interval = setInterval(() => {
-      setTick((prev) => (prev + 1) % RETRIEVAL_QUERIES.length);
+      setTick((prev) => (prev + 1) % queries.length);
     }, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [queries.length, activeStep]);
 
-  const activeNs = RETRIEVAL_QUERIES[tick]?.ns ?? "codebase";
+  const activeNs = queries[tick]?.ns ?? "codebase";
   const recentQueries = [0, 1, 2, 3]
-    .map((offset) => RETRIEVAL_QUERIES[(tick - offset + RETRIEVAL_QUERIES.length) % RETRIEVAL_QUERIES.length])
-    .filter((q): q is typeof RETRIEVAL_QUERIES[number] => !!q);
+    .map((offset) => queries[(tick - offset + queries.length) % queries.length])
+    .filter((q): q is typeof queries[number] => !!q);
 
   return (
     <div className="w-full h-full flex gap-4 py-2 px-3">
@@ -738,13 +778,22 @@ export function Card4() {
 /* ─────────────────────────────────────────────
    Card5 – Tool Call Inspector
    ───────────────────────────────────────────── */
-export function Card5() {
-  const tools = [
+export function Card5({ tools: liveTools }: { tools?: any[] }) {
+  const defaultTools = [
     { name: "web_search", calls: 14, icon: Globe, latency: "280ms", color: "bg-gradient-to-b from-amber-400 to-amber-600", borderColor: "border-amber-600" },
     { name: "code_exec", calls: 8, icon: TerminalWindow, latency: "1.2s", color: "bg-gradient-to-b from-zinc-700 to-zinc-900", borderColor: "border-zinc-850" },
     { name: "file_read", calls: 22, icon: FileText, latency: "12ms", color: "bg-gradient-to-b from-amber-500 to-orange-600", borderColor: "border-orange-600" },
     { name: "vector_query", calls: 31, icon: Brain, latency: "95ms", color: "bg-gradient-to-b from-zinc-800 to-zinc-950", borderColor: "border-zinc-900" },
   ];
+
+  const tools = defaultTools.map((defTool) => {
+    const live = liveTools?.find((lt) => lt.name === defTool.name);
+    return {
+      ...defTool,
+      calls: live?.calls ?? defTool.calls,
+      latency: live?.latency ?? defTool.latency,
+    };
+  });
 
   return (
     <div className="w-full h-full flex items-center justify-center p-1">
@@ -792,61 +841,74 @@ export function Card5() {
 /* ─────────────────────────────────────────────
    Main Grid Component
    ───────────────────────────────────────────── */
-const CARDS = [
-  {
-    title: "Agent Pipeline",
-    description: "Visualise how tasks flow across your multi-agent graph in real time.",
-    visual: <Card1 />,
-    colSpan: "lg:col-span-1",
-    height: "h-[250px]",
-  },
-  {
-    title: "Token Monitor",
-    description: "Track LLM token usage and cost-per-run across every model call.",
-    visual: <Card2 />,
-    colSpan: "lg:col-span-1",
-    height: "h-[250px]",
-  },
-  {
-    title: "Activity Feed",
-    description: "Real-time logs of agent actions, tool calls, and memory retrievals.",
-    visual: <Card3 />,
-    colSpan: "lg:col-span-1",
-    height: "h-[250px]",
-  },
-  {
-    title: "Knowledge Base",
-    description: "Semantic search across documents, codebases, and conversations.",
-    visual: <Card4 />,
-    colSpan: "lg:col-span-2",
-    height: "h-[250px]",
-  },
-  {
-    title: "Tool Inspector",
-    description: "Monitor tool usage, latency, and success rates across all agents.",
-    visual: <Card5 />,
-    colSpan: "lg:col-span-1",
-    height: "h-[250px]",
-  }
-];
-
 export interface AgentBentoGridProps {
   className?: string;
 }
 
 export function AgentBentoGrid({ className }: AgentBentoGridProps) {
+  const [telemetry, setTelemetry] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchTelemetry = async () => {
+      try {
+        const res = await apiFetch("/api/telemetry");
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data) {
+            setTelemetry(json.data);
+          }
+        }
+      } catch (e) {
+        // Fall back to static cycle silently
+      }
+    };
+
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-5xl mx-auto", className)}>
-      {CARDS.map((card, idx) => (
-        <FeatCard
-          key={idx}
-          title={card.title}
-          description={card.description}
-          className={cn(card.colSpan, card.height)}
-        >
-          {card.visual}
-        </FeatCard>
-      ))}
+      <FeatCard 
+        title="Agent Pipeline" 
+        description="Visualise how tasks flow across your multi-agent graph in real time." 
+        className="lg:col-span-1 h-[250px]"
+      >
+        <Card1 activeStep={telemetry?.activeStep} />
+      </FeatCard>
+      <FeatCard 
+        title="Token Monitor" 
+        description="Track LLM token usage and cost-per-run across every model call." 
+        className="lg:col-span-1 h-[250px]"
+      >
+        <Card2 tokens={telemetry?.tokens} />
+      </FeatCard>
+      <FeatCard 
+        title="Activity Feed" 
+        description="Real-time logs of agent actions, tool calls, and memory retrievals." 
+        className="lg:col-span-1 h-[250px]"
+      >
+        <Card3 activities={telemetry?.activities} />
+      </FeatCard>
+      <FeatCard 
+        title="Knowledge Base" 
+        description="Semantic search across documents, codebases, and conversations." 
+        className="lg:col-span-2 h-[250px]"
+      >
+        <Card4 
+          namespaces={telemetry?.namespaces} 
+          recentQueries={telemetry?.recentQueries} 
+          activeStep={telemetry?.activeStep} 
+        />
+      </FeatCard>
+      <FeatCard 
+        title="Tool Inspector" 
+        description="Monitor tool usage, latency, and success rates across all agents." 
+        className="lg:col-span-1 h-[250px]"
+      >
+        <Card5 tools={telemetry?.tools} />
+      </FeatCard>
     </div>
   );
 }
