@@ -385,8 +385,9 @@ export default function AgentPage() {
         });
 
         if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          throw new Error((errData as { error?: string })?.error ?? `Preview failed (${res.status})`);
+          const errData = (await res.json().catch(() => null)) as { error?: { message?: string } | string } | null;
+          const errMsg = typeof errData?.error === "object" ? errData?.error?.message : errData?.error;
+          throw new Error(errMsg ?? `Preview failed (${res.status})`);
         }
 
         const json = (await res.json()) as { data: { actions: CommandPreviewAction[]; warnings?: string[] } };

@@ -357,8 +357,9 @@ export default function GmailPage() {
         body: JSON.stringify({ command: queryText.trim() }),
       });
       if (!res.ok) {
-        const json = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(json?.error ?? "Failed to parse command");
+        const json = (await res.json().catch(() => null)) as { error?: { message?: string } | string } | null;
+        const errMsg = typeof json?.error === "object" ? json?.error?.message : json?.error;
+        throw new Error(errMsg ?? "Failed to parse command");
       }
       
       const json = (await res.json()) as { data: { actions: CommandPreviewAction[]; warnings?: string[] } };
@@ -404,7 +405,11 @@ export default function GmailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ limit: 5 }),
       });
-      if (!res.ok) throw new Error("Failed to summarize recent emails");
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: { message?: string } | string } | null;
+        const errMsg = typeof json?.error === "object" ? json?.error?.message : json?.error;
+        throw new Error(errMsg ?? "Failed to summarize recent emails");
+      }
       const json = (await res.json()) as { data: { summary: string } };
       
       setAgentLog((prev) => [...prev, {
@@ -717,7 +722,8 @@ export default function GmailPage() {
         </div>
 
         {/* Email Threads List Panel */}
-        <div className="flex w-[440px] shrink-0 flex-col border-r border-white/[0.04] bg-zinc-950/10">
+        {!isAgentic && (
+          <div className="flex w-[440px] shrink-0 flex-col border-r border-white/[0.04] bg-zinc-950/10">
           <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3 text-[10px] font-mono font-bold tracking-wider text-zinc-500 uppercase">
             <span>{currentFolder}</span>
             <span>{keyboardList.length} Messages</span>
@@ -787,9 +793,10 @@ export default function GmailPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* Selected Email Detailed Reading Pane */}
-        <div className="flex flex-1 flex-col bg-[#020208]/40 backdrop-blur-md">
+        <div className="flex flex-1 min-w-0 flex-col bg-[#020208]/40 backdrop-blur-md">
           {isAgentic ? (
             <div className="flex h-full flex-col overflow-hidden p-6 space-y-6">
               {/* Agent Header */}
@@ -1014,7 +1021,7 @@ export default function GmailPage() {
                 </div>
 
                 {/* Main Email Body Content */}
-                <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300 font-normal select-text">
+                <div className="whitespace-pre-wrap break-words [word-break:break-word] text-sm leading-relaxed text-zinc-300 font-normal select-text overflow-x-auto max-w-full">
                   {detailLoading ? (
                     <div className="flex justify-center py-10 text-zinc-600 text-xs font-mono">Loading email body...</div>
                   ) : (
