@@ -675,51 +675,53 @@ export default function GmailPage() {
       <div className="flex flex-1 overflow-hidden relative z-10">
         
         {/* Left Mailbox Folders Sidebar */}
-        <div className="flex w-60 shrink-0 flex-col border-r border-white/[0.04] bg-zinc-950/20 backdrop-blur-md p-4 gap-4">
-          <button
-            onClick={() => {
-              setComposeDefaults(undefined);
-              setComposeOpen(true);
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 py-3 text-xs font-display font-bold text-zinc-950 shadow-lg shadow-amber-500/10 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
-          >
-            <Plus size={14} weight="bold" />
-            <span>COMPOSE</span>
-          </button>
+        {!isAgentic && (
+          <div className="flex w-60 shrink-0 flex-col border-r border-white/[0.04] bg-zinc-950/20 backdrop-blur-md p-4 gap-4">
+            <button
+              onClick={() => {
+                setComposeDefaults(undefined);
+                setComposeOpen(true);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 py-3 text-xs font-display font-bold text-zinc-950 shadow-lg shadow-amber-500/10 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+            >
+              <Plus size={14} weight="bold" />
+              <span>COMPOSE</span>
+            </button>
 
-          <div className="flex flex-col gap-1">
-            {folders.map((folder) => {
-              const active = currentFolder === folder.id;
-              return (
-                <button
-                  key={folder.id}
-                  onClick={() => {
-                    setCurrentFolder(folder.id);
-                    setSelectedId(null);
-                    setFocusedIndex(0);
-                  }}
-                  className={`flex items-center justify-between rounded-xl px-4 py-2.5 text-xs font-sans tracking-wide transition-all duration-200 cursor-pointer border ${
-                    active
-                      ? "bg-white/[0.02] border-white/[0.05] text-amber-500 font-semibold shadow-sm"
-                      : "text-zinc-400 hover:bg-white/[0.01] hover:text-zinc-200 border-transparent"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className={active ? "text-amber-500" : "text-zinc-500"}>{folder.icon(active)}</span>
-                    <span>{folder.label}</span>
-                  </span>
-                  {folder.count > 0 && (
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold ${
-                      active ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" : "bg-white/[0.02] text-zinc-550 border border-white/[0.04]"
-                    }`}>
-                      {folder.count}
+            <div className="flex flex-col gap-1">
+              {folders.map((folder) => {
+                const active = currentFolder === folder.id;
+                return (
+                  <button
+                    key={folder.id}
+                    onClick={() => {
+                      setCurrentFolder(folder.id);
+                      setSelectedId(null);
+                      setFocusedIndex(0);
+                    }}
+                    className={`flex items-center justify-between rounded-xl px-4 py-2.5 text-xs font-sans tracking-wide transition-all duration-200 cursor-pointer border ${
+                      active
+                        ? "bg-white/[0.02] border-white/[0.05] text-amber-500 font-semibold shadow-sm"
+                        : "text-zinc-400 hover:bg-white/[0.01] hover:text-zinc-200 border-transparent"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className={active ? "text-amber-500" : "text-zinc-500"}>{folder.icon(active)}</span>
+                      <span>{folder.label}</span>
                     </span>
-                  )}
-                </button>
-              );
-            })}
+                    {folder.count > 0 && (
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold ${
+                        active ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" : "bg-white/[0.02] text-zinc-550 border border-white/[0.04]"
+                      }`}>
+                        {folder.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Email Threads List Panel */}
         {!isAgentic && (
