@@ -5,12 +5,18 @@ import { db } from "../db"; // your drizzle instance
 import * as schema from "../db/schema"; // your drizzle schema
 
 export const auth = betterAuth({
-  baseURL: "http://localhost:4000",
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,
   }),
-  trustedOrigins: ["http://localhost:3000"],
+  trustedOrigins: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    process.env.NEXT_PUBLIC_APP_URL,
+  ].filter(Boolean) as string[],
 
   account: {
     storeStateStrategy: "cookie",

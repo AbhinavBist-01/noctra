@@ -4,7 +4,12 @@ import { auth } from "@/server/better-auth/auth";
 import { DashboardSidebar } from "./sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  let session = null;
+  try {
+    session = await auth.api.getSession({ headers: await headers() });
+  } catch {
+    redirect("/signin");
+  }
 
   if (!session) {
     redirect("/signin");

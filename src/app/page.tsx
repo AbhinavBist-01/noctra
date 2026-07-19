@@ -4,7 +4,12 @@ import { auth } from "@/server/better-auth/auth";
 import LandingPageClient from "@/components/landing-page-client";
 
 export default async function HomePage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  let session = null;
+  try {
+    session = await auth.api.getSession({ headers: await headers() });
+  } catch {
+    // Session check failed, render landing page
+  }
 
   if (session) {
     redirect("/dashboard");

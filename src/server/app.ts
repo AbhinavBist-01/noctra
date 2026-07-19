@@ -36,7 +36,9 @@ const browserCors = cors({
   credentials: true,
 });
 
-app.use("/api/auth", browserCors, authRoute);
+app.all(["/api/auth", "/api/auth/*"], browserCors, (req, res, next) => {
+  authRoute(req, res, next);
+});
 
 app.use("/api/health", browserCors, healthRoute);
 app.use("/api/telemetry", browserCors, telemetryRoute);
