@@ -1,6 +1,9 @@
 import { processWebhook as corsairProcessWebhook } from "corsair";
 import { corsair } from "../corsair";
 import { getTenant } from "../corsair/tenant";
+import { db } from "../db";
+import { account } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 // In-memory webhook activity log (last 100 entries)
 type WebhookLogEntry = {
@@ -72,7 +75,15 @@ function detectWebhookType(
 }
 
 async function handleGmailNotification(historyId: string) {
-  const tenant = getTenant();
+  const googleAccount = await db
+    .select()
+    .from(account)
+    .where(eq(account.providerId, "google"))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+
+  const userId = googleAccount?.userId;
+  const tenant = getTenant(userId);
   console.log(`[WEBHOOK] Fetching messages after historyId ${historyId}`);
   try {
     const listRes = await tenant.gmail.api.messages.list({ maxResults: 20 });

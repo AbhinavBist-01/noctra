@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { auth } from "../better-auth/auth";
 import { fromNodeHeaders } from "better-auth/node";
 import { AppError } from "../lib/app-error";
+import { ensureUserSync } from "../sync/service";
 
 declare global {
   namespace Express {
@@ -34,6 +35,10 @@ export const requireAuth = async (
     }
 
     req.session = session as Request["session"];
+
+    // Automatically ensure DEKs & OAuth tokens are provisioned for this user
+    await ensureUserSync(session.user.id);
+
     next();
   } catch (error) {
     if (error instanceof AppError) {

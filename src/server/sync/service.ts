@@ -1,10 +1,10 @@
 import { db } from "../db";
-import { account, corsairIntegrations, corsairAccounts } from "../db/schema";
+import { account } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { getTenant } from "../corsair/tenant";
-import { AppError } from "../lib/app-error";
-import { randomUUID } from "node:crypto";
 import { corsair } from "../corsair";
+import { setupCorsair } from "corsair/setup";
+import { AppError } from "../lib/app-error";
+
 export type SyncResult = {
   gmail: boolean;
   calendar: boolean;
@@ -12,130 +12,91 @@ export type SyncResult = {
 
 const PLUGINS = ["gmail", "googlecalendar"] as const;
 
-async function ensurePluginKeys(
-  tenant: ReturnType<typeof corsair.withTenant>,
-  pluginName: (typeof PLUGINS)[number],
-  accessToken: string,
-  refreshToken: string | null,
-  scope: string | null,
-  expiresAt: string | null | undefined,
-) {
-  const plugin =
-    pluginName === "gmail"
-      ? tenant.gmail
-      : pluginName === "googlecalendar"
-        ? tenant.googlecalendar
-        : null;
+const initializedUsers = new Set<string>();
 
-  if (!plugin) return;
-  const keys = plugin.keys;
+/**
+ * Ensures DEKs and OAuth tokens are provisioned for a given user.
+ * Runs idempotently once per process per userId on demand.
+ */
+export async function ensureUserSync(userId: string): Promise<void> {
+  if (initializedUsers.has(userId)) return;
 
-  // Issue DEK if not present
   try {
-    await keys.get_access_token();
-  } catch {
-    await keys.issue_new_dek();
+    await setupUserSync(userId);
+    initializedUsers.add(userId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`[corsair] Auto DEK sync for user ${userId}: ${msg}`);
   }
-
-  // Set OAuth tokens via encrypted setters
-  await keys.set_access_token(accessToken);
-  if (refreshToken) await keys.set_refresh_token(refreshToken);
-  if (scope) await keys.set_scope(scope);
-  if (expiresAt) await keys.set_expires_at(expiresAt);
 }
 
-async function ensureIntegrationAndKeys(
-  userId: string,
-  tenant: ReturnType<typeof corsair.withTenant>,
-) {
-  const userAccount = await db
+/**
+ * Called immediately after a user signs in with Google (or lazily on first request).
+ * Uses Corsair's official `setupCorsair` API to:
+ *  1. Create corsair_integrations + corsair_accounts rows (idempotent)
+ *  2. Issue DEKs for the tenant (idempotent)
+ *  3. Write the current OAuth tokens from Better Auth's account row
+ */
+export async function setupUserSync(userId: string): Promise<SyncResult> {
+  // 1. Fetch the Google account row that Better Auth manages
+  const googleAccount = await db
     .select()
     .from(account)
     .where(and(eq(account.userId, userId), eq(account.providerId, "google")))
     .limit(1)
     .then((rows) => rows[0] ?? null);
 
-  if (!userAccount) {
+  if (!googleAccount) {
     throw new AppError(
       "VALIDATION_ERROR",
       "No Google account linked. Sign in with Google first.",
     );
   }
 
-  if (!userAccount.accessToken) {
+  if (!googleAccount.accessToken) {
     throw new AppError("VALIDATION_ERROR", "Google access token not found.");
   }
 
-  const tenantId = process.env.CORSAIR_TENANT_ID ?? "dev";
+  // 2. Provision rows + DEKs via the official Corsair API (idempotent)
+  //    tenantId = userId so every user gets their own encrypted credential slot
+  await setupCorsair(corsair as any, { tenantId: userId });
+  const tenantClient = corsair.withTenant(userId);
 
-  for (const name of PLUGINS) {
-    // Ensure integration record exists
-    const integration = await db
-      .select()
-      .from(corsairIntegrations)
-      .where(eq(corsairIntegrations.name, name))
-      .limit(1)
-      .then((r) => r[0] ?? null);
+  // 3. Write the OAuth tokens into Corsair's encrypted key store for each plugin
+  for (const pluginName of PLUGINS) {
+    const plugin =
+      pluginName === "gmail"
+        ? tenantClient.gmail
+        : tenantClient.googlecalendar;
 
-    let integrationId: string;
-    if (!integration) {
-      integrationId = randomUUID();
-      await db.insert(corsairIntegrations).values({
-        id: integrationId,
-        name,
-        config: {
-          clientId: process.env.BETTER_AUTH_GOOGLE_CLIENT_ID,
-          clientSecret: process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET,
-        },
-      });
-    } else {
-      integrationId = integration.id;
+    try {
+      await plugin.keys.set_access_token(googleAccount.accessToken);
+      if (googleAccount.refreshToken) {
+        await plugin.keys.set_refresh_token(googleAccount.refreshToken);
+      }
+      if (googleAccount.scope) {
+        await plugin.keys.set_scope(googleAccount.scope);
+      }
+      if (googleAccount.accessTokenExpiresAt) {
+        await plugin.keys.set_expires_at(
+          googleAccount.accessTokenExpiresAt.toISOString(),
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[corsair] Failed to set keys for ${pluginName}: ${msg}`);
     }
-
-    // Ensure corsair account exists
-    const existingAccount = await db
-      .select()
-      .from(corsairAccounts)
-      .where(
-        and(
-          eq(corsairAccounts.tenantId, tenantId),
-          eq(corsairAccounts.integrationId, integrationId),
-        ),
-      )
-      .limit(1)
-      .then((r) => r[0] ?? null);
-
-    if (!existingAccount) {
-      await db.insert(corsairAccounts).values({
-        id: randomUUID(),
-        tenantId,
-        integrationId,
-        config: {},
-      });
-    }
-
-    // Issue DEK + set tokens via keys manager
-    await ensurePluginKeys(
-      tenant,
-      name,
-      userAccount.accessToken,
-      userAccount.refreshToken,
-      userAccount.scope,
-      userAccount.accessTokenExpiresAt?.toISOString(),
-    );
   }
-}
 
-export async function setupUserSync(userId: string): Promise<SyncResult> {
-  const tenant = getTenant();
+  // Mark user as initialized
+  initializedUsers.add(userId);
 
-  await ensureIntegrationAndKeys(userId, tenant);
-
+  // 4. Smoke-test both integrations
   let gmail = false;
   let calendar = false;
 
   try {
-    await tenant.gmail.api.messages.list({ maxResults: 1 });
+    await tenantClient.gmail.api.messages.list({ maxResults: 1 });
     gmail = true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -143,7 +104,7 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
   }
 
   try {
-    await tenant.googlecalendar.api.events.getMany({});
+    await tenantClient.googlecalendar.api.events.getMany({});
     calendar = true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
