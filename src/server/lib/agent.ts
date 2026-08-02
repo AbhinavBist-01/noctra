@@ -57,12 +57,15 @@ export async function agent(
   const { openai, gemini } = getClient();
   const startTime = Date.now();
 
+  // Generous max token limit to prevent truncation mid-sentence or mid-JSON
+  const maxTokens = opts.maxTokens ?? 2500;
+
   if (openai) {
     try {
       const model = opts.model ?? "gpt-4o-mini";
       const response = await openai.chat.completions.create({
         model,
-        max_tokens: opts.maxTokens ?? 500,
+        max_tokens: maxTokens,
         temperature: opts.temperature ?? 0.2,
         messages: messages.map((m) => ({
           role: m.role as "system" | "user" | "assistant",
@@ -102,7 +105,7 @@ export async function agent(
         contents,
         config: {
           temperature: opts.temperature ?? 0.2,
-          maxOutputTokens: opts.maxTokens ?? 500,
+          maxOutputTokens: maxTokens,
           systemInstruction: systemInstructions || undefined,
         },
       });
@@ -132,7 +135,7 @@ export async function agentJson<T>(
       ...messages,
       { role: "user", content: "Respond with valid JSON only, no markdown." },
     ],
-    { ...opts, temperature: 0 },
+    { ...opts, maxTokens: opts.maxTokens ?? 2500, temperature: 0 },
   );
 
   const cleaned = text
