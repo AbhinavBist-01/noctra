@@ -23,6 +23,8 @@ import MorphText from "@/components/ui/morph-text";
 import ElasticStack from "@/components/ui/elastic-stack";
 import AgentBentoGrid from "@/components/ui/agent-bento-grid";
 import FlipFadeText from "@/components/ui/flip-fade-text";
+import { SpotlightGlowCard } from "@/components/ui/spotlight-glow-card";
+import { AmbientParticles } from "@/components/ui/ambient-particles";
 
 interface EmailDraftResult {
   type: "email_draft";
@@ -257,9 +259,10 @@ export default function LandingPageClient() {
   return (
     <div className="relative min-h-screen w-full bg-[#020206] text-zinc-100 overflow-x-hidden font-sans">
       
-      {/* Animated Aurora Rays Background */}
+      {/* Animated Aurora Rays & Bioluminescent Particles Background */}
       <div className="absolute inset-0 z-0 h-[90vh] w-full pointer-events-none opacity-45">
         <AnimatedRays className="w-full h-full" />
+        <AmbientParticles className="opacity-35" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#020206]/70 to-[#020206]" />
       </div>
 
@@ -813,14 +816,7 @@ export default function LandingPageClient() {
             <p className="text-xs font-mono text-zinc-500 leading-relaxed max-w-sm">
               The high-agency keyboard interface for Google Workspace. Speed up your workflow with natural language command parsing.
             </p>
-            {/* Operational Status badge */}
-            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] font-mono text-emerald-400 w-fit mt-2">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              <span>All Systems Operational</span>
-            </div>
+
           </div>
 
           {/* Product links */}

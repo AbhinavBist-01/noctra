@@ -36,7 +36,7 @@ const browserCors = cors({
   credentials: true,
 });
 
-app.all(["/api/auth", "/api/auth/*"], browserCors, (req, res, next) => {
+app.use("/api/auth", browserCors, (req, res, next) => {
   authRoute(req, res, next);
 });
 

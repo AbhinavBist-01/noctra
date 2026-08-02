@@ -4,14 +4,19 @@ import { auth } from "@/server/better-auth/auth";
 import { DashboardSidebar } from "./sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  let session = null;
+  let sessionData = null;
   try {
-    session = await auth.api.getSession({ headers: await headers() });
-  } catch {
-    redirect("/signin");
+    sessionData = await auth.api.getSession({ headers: await headers() });
+  } catch (err) {
+    console.log("[DashboardLayout] getSession threw error:", err);
   }
 
-  if (!session) {
+  console.log("[DashboardLayout] sessionData:", JSON.stringify(sessionData));
+  const hasSession = Boolean(sessionData?.session && sessionData?.user);
+  console.log("[DashboardLayout] hasSession:", hasSession);
+
+  if (!hasSession) {
+    console.log("[DashboardLayout] Redirecting to /signin...");
     redirect("/signin");
   }
 

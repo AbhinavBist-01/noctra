@@ -15,6 +15,8 @@ import {
   ChatCircleDots,
 } from "@phosphor-icons/react";
 import { apiFetch } from "@/server/lib/api-client";
+import { SpotlightGlowCard } from "@/components/ui/spotlight-glow-card";
+import { AmbientParticles } from "@/components/ui/ambient-particles";
 import type {
   CommandPreviewAction,
   CommandExecutionResult,
@@ -485,7 +487,8 @@ export default function AgentPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-full bg-[#020208] overflow-hidden">
+    <div className="relative flex flex-col h-full bg-[#020208] overflow-hidden">
+      <AmbientParticles className="opacity-30 pointer-events-none" />
       {/* Top Header Bar */}
       <div className="relative z-10 flex items-center justify-between border-b border-white/[0.04] bg-[#020208]/85 px-6 py-4 backdrop-blur-md">
         <div className="flex items-center gap-2">
@@ -544,28 +547,28 @@ export default function AgentPage() {
                 </div>
 
                 {/* Descriptive Suggestions Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-xl mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-xl mt-6 relative z-10">
                   {suggestions.map((s) => (
-                    <motion.button
+                    <SpotlightGlowCard
                       key={s.label}
-                      whileHover={{ scale: 1.02, y: -2 }}
-                      whileTap={{ scale: 0.98 }}
                       onClick={() => {
                         setInput(s.label);
                         inputRef.current?.focus();
                       }}
-                      className="flex flex-col gap-2 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer group"
+                      className="p-4 text-left cursor-pointer group hover:scale-[1.01] transition-transform"
                     >
-                      <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors">
-                        {s.icon}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors">
+                          {s.icon}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-zinc-200">{s.label}</h4>
+                          <p className="text-[10px] text-zinc-550 font-mono mt-1 leading-normal">
+                            {s.desc}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-zinc-200">{s.label}</h4>
-                        <p className="text-[10px] text-zinc-550 font-mono mt-1 leading-normal">
-                          {s.desc}
-                        </p>
-                      </div>
-                    </motion.button>
+                    </SpotlightGlowCard>
                   ))}
                 </div>
               </motion.div>
