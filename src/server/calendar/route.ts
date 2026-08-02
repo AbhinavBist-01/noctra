@@ -24,6 +24,7 @@ calendarRoute.get("/events", async (req, res, next) => {
       query: query.query,
       weekStart: query.weekStart,
       weekEnd: query.weekEnd,
+      userId: req.session?.user.id,
     });
 
     res.status(200).json({ data: result });
@@ -43,9 +44,9 @@ calendarRoute.post("/events/draft", async (req, res, next) => {
   }
 });
 
-calendarRoute.post("/refresh", async (_req, res, next) => {
+calendarRoute.post("/refresh", async (req, res, next) => {
   try {
-    await refreshCalendarEvents();
+    await refreshCalendarEvents(req.session?.user.id);
     res.status(200).json({ data: { success: true } });
   } catch (error) {
     next(error);
@@ -55,7 +56,7 @@ calendarRoute.post("/refresh", async (_req, res, next) => {
 calendarRoute.post("/invites", async (req, res, next) => {
   try {
     const body = validate(CreateCalendarInviteRequestSchema, req.body);
-    const result = await createCalendarInvite(body);
+    const result = await createCalendarInvite(body, req.session?.user.id);
 
     res.status(201).json({ data: result });
   } catch (error) {
@@ -64,9 +65,9 @@ calendarRoute.post("/invites", async (req, res, next) => {
 });
 
 // GET /invites — returns upcoming calendar events as invite references
-calendarRoute.get("/invites", async (_req, res, next) => {
+calendarRoute.get("/invites", async (req, res, next) => {
   try {
-    const result = await getCalendarEvents({});
+    const result = await getCalendarEvents({ userId: req.session?.user.id });
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);
@@ -77,7 +78,7 @@ calendarRoute.get("/invites", async (_req, res, next) => {
 calendarRoute.delete("/events/:eventId", async (req, res, next) => {
   try {
     const { eventId } = validate(DeleteCalendarEventParamsSchema, req.params);
-    const result = await deleteCalendarEvent(eventId);
+    const result = await deleteCalendarEvent(eventId, req.session?.user.id);
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);

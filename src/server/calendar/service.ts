@@ -10,10 +10,11 @@ export const getCalendarEvents = async (input: {
   query?: string;
   weekStart?: string;
   weekEnd?: string;
+  userId?: string;
 }) => {
   const startTime = Date.now();
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(input.userId);
 
     const params: CalendarEventGetManyParams = {};
     if (input.weekStart) params.timeMin = input.weekStart;
@@ -54,9 +55,9 @@ export const draftCalendarEvent = async (
   return { draft: input };
 };
 
-export const refreshCalendarEvents = async () => {
+export const refreshCalendarEvents = async (userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
     await tenant.googlecalendar.api.events.getMany({ maxResults: 50 });
   } catch (error: unknown) {
     throw new AppError(
@@ -68,10 +69,11 @@ export const refreshCalendarEvents = async () => {
 
 export const createCalendarInvite = async (
   input: CreateCalendarInviteRequest,
+  userId?: string,
 ) => {
   const startTime = Date.now();
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
 
     const params: CalendarEventCreateParams = {
       event: {
@@ -106,9 +108,9 @@ export const createCalendarInvite = async (
   }
 };
 
-export const deleteCalendarEvent = async (eventId: string) => {
+export const deleteCalendarEvent = async (eventId: string, userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
     await tenant.googlecalendar.api.events.delete({
       calendarId: "primary",
       id: eventId,

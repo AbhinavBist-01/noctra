@@ -43,10 +43,11 @@ export const getGmailMessages = async (input: {
   query?: string;
   limit?: number;
   cursor?: string;
+  userId?: string;
 }) => {
   const startTime = Date.now();
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(input.userId);
     const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
     const limit = input.limit ?? 20;
 
@@ -107,9 +108,9 @@ export const getGmailMessages = async (input: {
   }
 };
 
-export const getGmailMessageById = async (messageId: string) => {
+export const getGmailMessageById = async (messageId: string, userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
     let entity = await tenant.gmail.db.messages.findByEntityId(messageId);
     if (!entity) {
       const fetched = await tenant.gmail.api.messages.get({ id: messageId });
@@ -143,9 +144,10 @@ export const createGmailDraft = async (input: {
   cc?: string[];
   bcc?: string[];
   body: string;
+  userId?: string;
 }) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(input.userId);
     const params: GmailDraftCreateParams = {
       draft: {
         message: {
@@ -168,9 +170,9 @@ export const createGmailDraft = async (input: {
   }
 };
 
-export const sendGmailDraft = async (draftId: string) => {
+export const sendGmailDraft = async (draftId: string, userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
     const params: GmailDraftSendParams = { id: draftId };
     const sentDraft = await tenant.gmail.api.drafts.send(params);
     return sentDraft;
@@ -188,9 +190,10 @@ export const sendGmailMessage = async (input: {
   cc?: string[];
   bcc?: string[];
   body: string;
+  userId?: string;
 }) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(input.userId);
     const params: GmailMessageSendParams = {
       raw: Buffer.from(
         `To: ${input.to.join(", ")}\r\n` +
@@ -209,9 +212,9 @@ export const sendGmailMessage = async (input: {
   }
 };
 
-export const getGmailDrafts = async () => {
+export const getGmailDrafts = async (userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
     const raw = await tenant.gmail.db.drafts.list({});
     const drafts = Array.isArray(raw) ? raw : [];
     
@@ -250,9 +253,9 @@ export const getGmailDrafts = async () => {
   }
 };
 
-export const refreshGmailMessages = async () => {
+export const refreshGmailMessages = async (userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
 
     // Sync both INBOX and SENT labels
     const labelsToSync = ["INBOX", "SENT"];
@@ -315,9 +318,9 @@ export const refreshGmailMessages = async () => {
   }
 };
 
-export const trashGmailMessage = async (messageId: string) => {
+export const trashGmailMessage = async (messageId: string, userId?: string) => {
   try {
-    const tenant = getTenant();
+    const tenant = getTenant(userId);
     await tenant.gmail.api.messages.trash({ id: messageId });
     return { success: true };
   } catch (error: unknown) {
