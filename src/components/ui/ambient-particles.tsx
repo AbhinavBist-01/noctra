@@ -67,7 +67,7 @@ export function AmbientParticles({ className = "" }: { className?: string }) {
       vy: (Math.random() - 0.5) * 0.4,
       radius: Math.random() * 1.8 + 0.8,
       alpha: Math.random() * 0.4 + 0.1,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: colors[Math.floor(Math.random() * colors.length)] ?? "rgba(245, 158, 11, ",
     }));
 
     // Render loop
@@ -109,6 +109,7 @@ export function AmbientParticles({ className = "" }: { className?: string }) {
         for (let j = i + 1; j < particles.length; j++) {
           const p1 = particles[i];
           const p2 = particles[j];
+          if (!p1 || !p2) continue;
           const dx = p1.x - p2.x;
           const dy = p1.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);

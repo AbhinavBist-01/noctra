@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform, type HTMLMotionProps } from "framer-motion";
 
-interface SpotlightGlowCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface SpotlightGlowCardProps extends HTMLMotionProps<"div"> {
   children: React.ReactNode;
   className?: string;
   glowColor?: string;
