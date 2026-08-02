@@ -19,6 +19,7 @@ import {
   Plus,
   Robot,
 } from "@phosphor-icons/react";
+import { FormattedMessageText } from "@/components/ui/formatted-message-text";
 
 type GmailMessage = {
   id: string;
@@ -823,17 +824,30 @@ export default function GmailPage() {
                 ) : (
                   <div className="space-y-4">
                     {agentLog.map((log, i) => (
-                      <div key={i} className={`rounded-xl border p-4 space-y-2 ${
+                      <div key={i} className={`rounded-2xl border p-4 space-y-2.5 transition-all ${
                         log.role === "user" 
-                          ? "border-amber-500/10 bg-amber-500/[0.03] text-zinc-300"
-                          : "border-white/[0.04] bg-white/[0.01] text-zinc-200"
+                          ? "border-amber-500/20 bg-amber-500/[0.04] text-zinc-200"
+                          : "border-white/[0.08] bg-zinc-900/60 backdrop-blur-md text-zinc-100 shadow-xl shadow-black/20"
                       }`}>
-                        <div className="flex items-center justify-between text-[9px] font-mono font-bold tracking-wider text-zinc-550 uppercase">
-                          <span>{log.role === "user" ? "You" : "Gmail Agent"}</span>
-                          <span>{log.time}</span>
+                        <div className="flex items-center justify-between text-[10px] font-mono font-bold tracking-wider text-zinc-400 uppercase">
+                          <div className="flex items-center gap-2">
+                            {log.role === "user" ? (
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-[10px]">You</span>
+                            ) : (
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 text-amber-300">
+                                <Robot size={12} weight="bold" />
+                              </span>
+                            )}
+                            <span className="text-zinc-300 font-semibold">{log.role === "user" ? "You" : "Gmail Co-Pilot"}</span>
+                          </div>
+                          <span className="text-[9px] text-zinc-500">{log.time}</span>
                         </div>
-                        <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono">
-                          {log.text}
+                        <div className="text-xs leading-relaxed">
+                          {log.role === "user" ? (
+                            <span className="font-sans text-zinc-200">{log.text}</span>
+                          ) : (
+                            <FormattedMessageText text={log.text} />
+                          )}
                         </div>
                       </div>
                     ))}
