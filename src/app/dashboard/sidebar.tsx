@@ -43,7 +43,7 @@ const navSections: NavSection[] = [
   {
     title: "Workspace",
     items: [
-      { href: "/dashboard/agent", label: "AI Agent", icon: <Robot size={18} />, id: "agent" },
+      { href: "/dashboard/agent", label: "Co-Pilot", icon: <Robot size={18} />, id: "agent" },
       { href: "/dashboard/calendar", label: "Calendar", icon: <CalendarBlank size={18} />, id: "calendar" },
     ],
   },

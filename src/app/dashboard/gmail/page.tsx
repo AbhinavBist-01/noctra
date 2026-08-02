@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/server/lib/api-client";
 import { PreviewModal } from "@/components/preview-modal";
 import { ComposeModal } from "@/components/compose-modal";
+import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import type { CommandPreviewAction } from "@/shared/command";
 import {
   EnvelopeSimple,
@@ -602,7 +603,7 @@ export default function GmailPage() {
                   : "text-zinc-550 hover:text-zinc-300"
               }`}
             >
-              Agentic
+              Co-Pilot
             </button>
           </div>
 
@@ -807,7 +808,7 @@ export default function GmailPage() {
                   <Sparkle size={18} weight="fill" className="animate-pulse text-amber-500" />
                 </div>
                 <div>
-                  <h2 className="font-display text-base font-extrabold text-zinc-100 uppercase tracking-wide">AI Gmail Co-Pilot</h2>
+                  <h2 className="font-display text-base font-extrabold text-zinc-100 uppercase tracking-wide">Co-Pilot</h2>
                   <p className="text-[10px] text-zinc-500 font-mono">Conversational inbox agent with context of all your emails</p>
                 </div>
               </div>
@@ -857,30 +858,24 @@ export default function GmailPage() {
                   <button
                     onClick={() => { void handleSummarizeLast5(); }}
                     disabled={agentLoading}
-                    className="flex items-start gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
                       <Sparkle size={14} weight="fill" />
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-200">Summarize Last 5 Mails</h4>
-                      <p className="text-[9px] text-zinc-555 font-mono mt-0.5 leading-normal">Aggregate your latest updates.</p>
-                    </div>
+                    <h4 className="text-xs font-bold text-zinc-200">Summarize Last 5 Mails</h4>
                   </button>
 
                   {/* Show Important Emails */}
                   <button
                     onClick={handleShowImportant}
                     disabled={agentLoading}
-                    className="flex items-start gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
                       <Star size={14} weight="fill" />
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-200">Show Important Emails</h4>
-                      <p className="text-[9px] text-zinc-555 font-mono mt-0.5 leading-normal">Filter the list for high priority.</p>
-                    </div>
+                    <h4 className="text-xs font-bold text-zinc-200">Show Important Emails</h4>
                   </button>
 
                   {/* Draft/Send Mail */}
@@ -890,58 +885,41 @@ export default function GmailPage() {
                       setComposeOpen(true);
                     }}
                     disabled={agentLoading}
-                    className="flex items-start gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
                       <EnvelopeSimple size={14} weight="fill" />
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-200">Draft/Send Mail</h4>
-                      <p className="text-[9px] text-zinc-555 font-mono mt-0.5 leading-normal">Compose a new message.</p>
-                    </div>
+                    <h4 className="text-xs font-bold text-zinc-200">Draft/Send Mail</h4>
                   </button>
 
                   {/* Clean Spam/Trash */}
                   <button
                     onClick={() => { void handleCleanSpam(); }}
                     disabled={agentLoading}
-                    className="flex items-start gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-red-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-red-500/25 transition-all cursor-pointer disabled:opacity-50 group"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 transition-colors shrink-0">
                       <Trash size={14} weight="fill" />
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-200">Delete Spam &amp; Cleanup</h4>
-                      <p className="text-[9px] text-zinc-555 font-mono mt-0.5 leading-normal">Trash junk &amp; spam emails.</p>
-                    </div>
+                    <h4 className="text-xs font-bold text-zinc-200">Delete Spam &amp; Cleanup</h4>
                   </button>
                 </div>
               </div>
 
               {/* Prompt Input Area */}
-              <div className="relative flex items-center rounded-2xl border border-white/[0.06] bg-zinc-950/40 px-4 py-3.5 gap-2">
-                <input
-                  type="text"
-                  value={agentInput}
-                  onChange={(e) => setAgentInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void handleAgentQuery(agentInput);
-                    }
-                  }}
-                  placeholder="Ask AI Gmail Agent (e.g. 'Draft reply to John telling him I'm on it')"
-                  className="flex-1 bg-transparent text-xs text-zinc-200 placeholder:text-zinc-650 focus:outline-none font-mono"
-                  disabled={agentLoading}
-                />
-                <button
-                  onClick={() => { void handleAgentQuery(agentInput); }}
-                  disabled={!agentInput.trim() || agentLoading}
-                  className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 disabled:opacity-30 hover:bg-amber-500/20 transition-colors cursor-pointer"
-                >
-                  <PaperPlaneTilt size={13} weight="fill" />
-                </button>
-              </div>
+              <PlaceholdersAndVanishInput
+                placeholders={[
+                  "Draft reply to John telling him I'm on it…",
+                  "Summarize my latest emails from today…",
+                  "Draft an email to sales@acme.com with pricing update…",
+                  "Find emails marked as urgent…",
+                ]}
+                value={agentInput}
+                onValueChange={setAgentInput}
+                onSubmit={(val) => { void handleAgentQuery(val); }}
+                disabled={agentLoading}
+              />
             </div>
           ) : !selectedMessage ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-zinc-600 font-mono text-xs">
