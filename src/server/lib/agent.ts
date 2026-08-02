@@ -25,23 +25,28 @@ function getClient(): {
   openai?: OpenAI; 
   gemini?: GoogleGenAI; 
 } {
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const providerSetting = (process.env.AI_PROVIDER || "").toLowerCase();
   const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
 
-  if (geminiKey) {
-    if (!geminiClient) {
-      geminiClient = new GoogleGenAI({ apiKey: geminiKey });
-      console.log("[agent] Initialized native Google GenAI client");
+  // Check OpenAI first if OPENAI_API_KEY is present or AI_PROVIDER=openai
+  if (providerSetting === "openai" || (openaiKey && providerSetting !== "google" && providerSetting !== "gemini")) {
+    if (!openaiKey) {
+      throw new Error("AI_PROVIDER is set to 'openai' but OPENAI_API_KEY is missing from environment.");
     }
-    return { gemini: geminiClient };
-  } else if (openaiKey) {
     if (!openaiClient) {
       openaiClient = new OpenAI({ apiKey: openaiKey });
-      console.log("[agent] Initialized OpenAI client");
+      console.log("[agent] Initialized OpenAI client (API Provider: OpenAI)");
     }
     return { openai: openaiClient };
+  } else if (geminiKey) {
+    if (!geminiClient) {
+      geminiClient = new GoogleGenAI({ apiKey: geminiKey });
+      console.log("[agent] Initialized Google GenAI client (API Provider: Google)");
+    }
+    return { gemini: geminiClient };
   } else {
-    throw new Error("Neither GEMINI_API_KEY nor OPENAI_API_KEY is set");
+    throw new Error("Neither OPENAI_API_KEY nor GEMINI_API_KEY is set in environment.");
   }
 }
 
@@ -52,7 +57,31 @@ export async function agent(
   const { openai, gemini } = getClient();
   const startTime = Date.now();
 
-  if (gemini) {
+  if (openai) {
+    try {
+      const model = opts.model ?? "gpt-4o-mini";
+      const response = await openai.chat.completions.create({
+        model,
+        max_tokens: opts.maxTokens ?? 500,
+        temperature: opts.temperature ?? 0.2,
+        messages: messages.map((m) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        })),
+      });
+
+      const latency = Date.now() - startTime;
+      const promptTokens = response.usage?.prompt_tokens ?? 0;
+      const completionTokens = response.usage?.completion_tokens ?? 0;
+      telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
+
+      return (response.choices?.[0]?.message?.content ?? "").trim();
+    } catch (error) {
+      throw new Error(
+        `OpenAI Agent error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  } else if (gemini) {
     try {
       const systemInstructions = messages
         .filter((m) => m.role === "system")
@@ -87,30 +116,6 @@ export async function agent(
     } catch (error) {
       throw new Error(
         `Gemini Agent error: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  } else if (openai) {
-    try {
-      const model = opts.model ?? "gpt-4o-mini";
-      const response = await openai.chat.completions.create({
-        model,
-        max_tokens: opts.maxTokens ?? 500,
-        temperature: opts.temperature ?? 0.2,
-        messages: messages.map((m) => ({
-          role: m.role as "system" | "user" | "assistant",
-          content: m.content,
-        })),
-      });
-
-      const latency = Date.now() - startTime;
-      const promptTokens = response.usage?.prompt_tokens ?? 0;
-      const completionTokens = response.usage?.completion_tokens ?? 0;
-      telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
-
-      return (response.choices?.[0]?.message?.content ?? "").trim();
-    } catch (error) {
-      throw new Error(
-        `OpenAI Agent error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   } else {
