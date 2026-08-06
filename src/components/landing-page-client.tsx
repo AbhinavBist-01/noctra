@@ -25,6 +25,7 @@ import AgentBentoGrid from "@/components/ui/agent-bento-grid";
 import FlipFadeText from "@/components/ui/flip-fade-text";
 import { SpotlightGlowCard } from "@/components/ui/spotlight-glow-card";
 import { AmbientParticles } from "@/components/ui/ambient-particles";
+import { HowToUsePipeline } from "@/components/ui/how-to-use-pipeline";
 
 interface EmailDraftResult {
   type: "email_draft";
@@ -753,57 +754,7 @@ export default function LandingPageClient() {
       </section>
 
       {/* How to Use Section */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-24 border-t border-white/[0.03]" id="how-to-use">
-        <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
-          <h2 className="text-xs font-mono text-amber-500 uppercase tracking-widest font-bold">Interactive Workflow</h2>
-          <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">How to Use Noctra</h3>
-          <p className="text-zinc-500 text-sm">Follow three easy steps to automate your day-to-day Workspace workflow.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-          {/* SVG Connector Line running between cards on desktop */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-500/15 to-transparent -translate-y-12 z-0" />
-
-          {/* Step 1 */}
-          <div className="relative z-10 glass-panel rounded-2xl p-7 flex flex-col gap-4 border border-white/[0.03] hover:border-amber-500/20 transition-colors duration-300">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 font-mono font-bold text-sm">
-              01
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Connect Google Workspace</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Link your Google account securely using OAuth. Noctra only accesses API scopes for Gmail drafts and Calendar entries you explicitly command.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="relative z-10 glass-panel rounded-2xl p-7 flex flex-col gap-4 border border-white/[0.03] hover:border-amber-500/20 transition-colors duration-300">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 font-mono font-bold text-sm">
-              02
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Type Your Command</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Type naturally in plain English. Write simple directives like &quot;Draft sick leave to my manager&quot; or compound flows like &quot;Email client and book a sync&quot;.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="relative z-10 glass-panel rounded-2xl p-7 flex flex-col gap-4 border border-white/[0.03] hover:border-amber-500/20 transition-colors duration-300">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 font-mono font-bold text-sm">
-              03
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-200">Review & Execute</h4>
-              <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed font-mono">
-                Verify the extracted visual parameters in the command desk, edit any fields manually if needed, and confirm execution with a single keyboard shortcut.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HowToUsePipeline />
 
 
 
