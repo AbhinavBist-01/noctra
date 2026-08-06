@@ -33,8 +33,12 @@ const fetchFullMessage = async (
     const full = (cachedRow?.data ?? cached) as RawGmailMessage | undefined;
     if (full?.payload?.headers) return full;
   } catch { /* not in cache */ }
+
   try {
-    const fetched = await tenant.gmail.api.messages.get({ id });
+    const fetched = await Promise.race([
+      tenant.gmail.api.messages.get({ id }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Fetch timeout")), 3000)),
+    ]);
     return ((fetched as any).data ?? fetched) as RawGmailMessage;
   } catch { return data; }
 };
@@ -46,29 +50,56 @@ export const getGmailMessages = async (input: {
   userId?: string;
 }) => {
   const startTime = Date.now();
+  const limit = input.limit ?? 20;
+  const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
+
+  const fetchLiveMessages = async (tenantClient: TenantType) => {
+    const listParams: GmailMessageListParams = { maxResults: Math.min(limit, 50) };
+    if (input.query) listParams.q = input.query;
+
+    const raw = await tenantClient.gmail.api.messages.list(listParams);
+    const items = (raw && typeof raw === "object" && "messages" in raw) ? (raw.messages ?? []) : (Array.isArray(raw) ? raw : []);
+    
+    const fullMsgs = await Promise.all(
+      (items as Array<{ id?: string; entityId?: string; data?: RawGmailMessage } & RawGmailMessage>).map(async (m) => {
+        const full = await fetchFullMessage(tenantClient, m);
+        const id = full.id ?? m.id;
+        if (id) {
+          try {
+            await tenantClient.gmail.db.messages.upsertByEntityId(id, full as any);
+          } catch { /* ignore cache write error */ }
+        }
+        return full;
+      })
+    );
+    return fullMsgs;
+  };
+
   try {
     const tenant = getTenant(input.userId);
-    const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
-    const limit = input.limit ?? 20;
+    let allMessages: RawGmailMessage[] = [];
 
-    let allMessages: RawGmailMessage[];
-    if (input.query) {
-      const raw = await tenant.gmail.api.messages.list({ q: input.query });
-      const rawMessages = (raw && typeof raw === "object" && "messages" in raw) ? (raw.messages ?? []) : (Array.isArray(raw) ? raw : []);
-      allMessages = await Promise.all(
-        (rawMessages as Array<{ id?: string; entityId?: string; data?: RawGmailMessage } & RawGmailMessage>).map((m) =>
-          fetchFullMessage(tenant, m)
-        )
-      );
-    } else {
-      // Direct list from local database cache (instant)
-      const raw = await tenant.gmail.db.messages.list({});
-      const list = Array.isArray(raw) ? raw : [];
-      allMessages = list.map((m) => {
-        const cachedRow = m as unknown as { data?: RawGmailMessage } | null;
-        const rawMsg = cachedRow?.data ?? m;
-        return rawMsg as RawGmailMessage;
-      });
+    // Always fetch live emails directly from Gmail API first
+    try {
+      allMessages = await fetchLiveMessages(tenant);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
+        console.log(`[GmailService] Live fetch 401 Unauthorized for ${input.userId}, re-syncing OAuth tokens...`);
+        const { setupUserSync } = await import("../sync/service");
+        await setupUserSync(input.userId);
+        const freshTenant = getTenant(input.userId);
+        allMessages = await fetchLiveMessages(freshTenant);
+      } else {
+        // Fallback to local DB cache if offline / network error occurs
+        console.warn(`[GmailService] Live Gmail API fetch failed (${msg}), falling back to local DB cache`);
+        const rawCache = await tenant.gmail.db.messages.list({});
+        const cacheList = Array.isArray(rawCache) ? rawCache : [];
+        allMessages = cacheList.map((m) => {
+          const cachedRow = m as unknown as { data?: RawGmailMessage } | null;
+          return (cachedRow?.data ?? m) as RawGmailMessage;
+        });
+      }
     }
 
     // Deduplicate by message ID to prevent duplicate React keys
@@ -87,11 +118,11 @@ export const getGmailMessages = async (input: {
     const messages = hasMore ? paged.slice(0, limit) : paged;
 
     const duration = Date.now() - startTime;
-    telemetryService.recordToolCall("web_search", duration); // Gmail API calls
-    telemetryService.recordToolCall("vector_query", Math.round(duration * 0.1)); // Local cache queries
+    telemetryService.recordToolCall("web_search", duration);
+    telemetryService.recordToolCall("vector_query", Math.round(duration * 0.1));
     telemetryService.recordActivity(
       "GmailService",
-      `Listed ${messages.length} messages from cache`,
+      `Fetched ${messages.length} messages`,
       "done",
       duration
     );
@@ -254,10 +285,7 @@ export const getGmailDrafts = async (userId?: string) => {
 };
 
 export const refreshGmailMessages = async (userId?: string) => {
-  try {
-    const tenant = getTenant(userId);
-
-    // Sync both INBOX and SENT labels
+  const doRefresh = async (tenantClient: TenantType) => {
     const labelsToSync = ["INBOX", "SENT"];
     const seenIds = new Set<string>();
 
@@ -266,12 +294,12 @@ export const refreshGmailMessages = async (userId?: string) => {
         maxResults: 50,
         labelIds: [label],
       };
-      const listRes = await tenant.gmail.api.messages.list(listParams);
+      const listRes = await tenantClient.gmail.api.messages.list(listParams);
       const items = (listRes && typeof listRes === "object" && "messages" in listRes) ? (listRes.messages ?? []) : [];
       for (const item of items) {
         if (item?.id && !seenIds.has(item.id)) {
           seenIds.add(item.id);
-          const fetched = await tenant.gmail.api.messages.get({ id: item.id });
+          const fetched = await tenantClient.gmail.api.messages.get({ id: item.id });
           const data = (fetched && typeof fetched === "object" && "data" in fetched && fetched.data)
             ? fetched.data
             : fetched;
@@ -279,36 +307,29 @@ export const refreshGmailMessages = async (userId?: string) => {
             const upsertData = {
               ...data,
               id: item.id,
-            } as Parameters<typeof tenant.gmail.db.messages.upsertByEntityId>[1];
-            await tenant.gmail.db.messages.upsertByEntityId(item.id, upsertData);
+            } as Parameters<typeof tenantClient.gmail.db.messages.upsertByEntityId>[1];
+            await tenantClient.gmail.db.messages.upsertByEntityId(item.id, upsertData);
           }
         }
       }
     }
+  };
 
-    // Sync drafts
+  try {
+    const tenant = getTenant(userId);
     try {
-      const draftsRes = await tenant.gmail.api.drafts.list({ maxResults: 20 });
-      const draftsItems = (draftsRes && typeof draftsRes === "object" && "drafts" in draftsRes) ? (draftsRes.drafts ?? []) : [];
-      for (const item of draftsItems) {
-        if (item?.id) {
-          const fetched = await tenant.gmail.api.drafts.get({ id: item.id });
-          const data = (fetched && typeof fetched === "object" && "data" in fetched && fetched.data)
-            ? fetched.data
-            : fetched;
-          if (data) {
-            const msgData = data as unknown as { message?: { id?: string }; id?: string };
-            const upsertDraft = {
-              id: item.id,
-              messageId: msgData.message?.id ?? msgData.id,
-            } as Parameters<typeof tenant.gmail.db.drafts.upsertByEntityId>[1];
-            await tenant.gmail.db.drafts.upsertByEntityId(item.id, upsertDraft);
-          }
-        }
-      }
+      await doRefresh(tenant);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.log(`[Sync] Drafts sync skipped/failed: ${message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      if ((msg.includes("Unauthorized") || msg.includes("401")) && userId) {
+        console.log(`[GmailService] Refresh 401 for ${userId}, re-syncing tokens...`);
+        const { setupUserSync } = await import("../sync/service");
+        await setupUserSync(userId);
+        const freshTenant = getTenant(userId);
+        await doRefresh(freshTenant);
+      } else {
+        throw err;
+      }
     }
   } catch (error: unknown) {
     throw new AppError(
