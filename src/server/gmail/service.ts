@@ -25,21 +25,31 @@ const fetchFullMessage = async (
   const id = partial.id ?? partial.entityId;
   if (!id) return partial;
   const data = partial.data ?? partial;
-  if (data.payload?.headers) return data;
+  
+  // If we already have payload headers or subject, return immediately
+  if (data.payload?.headers || data.subject) return data;
 
+  // Try reading from local DB cache first
   try {
     const cached = await tenant.gmail.db.messages.findByEntityId(id);
     const cachedRow = cached as unknown as { data?: RawGmailMessage } | null;
     const full = (cachedRow?.data ?? cached) as RawGmailMessage | undefined;
-    if (full?.payload?.headers) return full;
+    if (full?.payload?.headers || full?.subject) return full;
   } catch { /* not in cache */ }
 
+  // Otherwise fetch from Gmail API with a strict 4-second timeout
   try {
     const fetched = await Promise.race([
       tenant.gmail.api.messages.get({ id }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Fetch timeout")), 3000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Fetch timeout")), 4000)),
     ]);
-    return ((fetched as any).data ?? fetched) as RawGmailMessage;
+    const fetchedMsg = ((fetched as any).data ?? fetched) as RawGmailMessage;
+    
+    // Fallback headers from partial data if fetched message lacks headers
+    if (!fetchedMsg.payload?.headers && data.payload?.headers) {
+      fetchedMsg.payload = { ...(fetchedMsg.payload ?? {}), headers: data.payload.headers };
+    }
+    return fetchedMsg;
   } catch { return data; }
 };
 
@@ -50,7 +60,7 @@ export const getGmailMessages = async (input: {
   userId?: string;
 }) => {
   const startTime = Date.now();
-  const limit = input.limit ?? 20;
+  const limit = input.limit ?? 30;
   const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
 
   const fetchLiveMessages = async (tenantClient: TenantType) => {
@@ -79,30 +89,56 @@ export const getGmailMessages = async (input: {
     const tenant = getTenant(input.userId);
     let allMessages: RawGmailMessage[] = [];
 
-    // Always fetch live emails directly from Gmail API first
-    try {
-      allMessages = await fetchLiveMessages(tenant);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
-        console.log(`[GmailService] Live fetch 401 Unauthorized for ${input.userId}, re-syncing OAuth tokens...`);
-        const { setupUserSync } = await import("../sync/service");
-        await setupUserSync(input.userId);
-        const freshTenant = getTenant(input.userId);
-        allMessages = await fetchLiveMessages(freshTenant);
-      } else {
-        // Fallback to local DB cache if offline / network error occurs
-        console.warn(`[GmailService] Live Gmail API fetch failed (${msg}), falling back to local DB cache`);
-        const rawCache = await tenant.gmail.db.messages.list({});
-        const cacheList = Array.isArray(rawCache) ? rawCache : [];
+    if (input.query) {
+      // Search query — run live search
+      try {
+        allMessages = await fetchLiveMessages(tenant);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
+          const { setupUserSync } = await import("../sync/service");
+          await setupUserSync(input.userId);
+          const freshTenant = getTenant(input.userId);
+          allMessages = await fetchLiveMessages(freshTenant);
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      // Instant SWR: Read local DB cache immediately for instant response
+      const rawCache = await tenant.gmail.db.messages.list({});
+      const cacheList = Array.isArray(rawCache) ? rawCache : [];
+
+      if (cacheList.length > 0) {
         allMessages = cacheList.map((m) => {
           const cachedRow = m as unknown as { data?: RawGmailMessage } | null;
           return (cachedRow?.data ?? m) as RawGmailMessage;
         });
+
+        // Trigger non-blocking background live sync so new emails populate automatically
+        void refreshGmailMessages(input.userId).catch((err) => {
+          console.log(`[GmailService] Background auto-sync skipped: ${err instanceof Error ? err.message : String(err)}`);
+        });
+      } else {
+        // Cache empty — fetch live synchronously so user gets messages on first load
+        console.log(`[GmailService] Cache empty for ${input.userId ?? "default"}, fetching live from Gmail API...`);
+        try {
+          allMessages = await fetchLiveMessages(tenant);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
+            const { setupUserSync } = await import("../sync/service");
+            await setupUserSync(input.userId);
+            const freshTenant = getTenant(input.userId);
+            allMessages = await fetchLiveMessages(freshTenant);
+          } else {
+            throw err;
+          }
+        }
       }
     }
 
-    // Deduplicate by message ID to prevent duplicate React keys
+    // Deduplicate by message ID
     const seenIds = new Set<string>();
     allMessages = allMessages.filter((m) => {
       const id = m?.id;
@@ -122,7 +158,7 @@ export const getGmailMessages = async (input: {
     telemetryService.recordToolCall("vector_query", Math.round(duration * 0.1));
     telemetryService.recordActivity(
       "GmailService",
-      `Fetched ${messages.length} messages`,
+      `Fetched ${messages.length} messages (SWR Instant)`,
       "done",
       duration
     );
