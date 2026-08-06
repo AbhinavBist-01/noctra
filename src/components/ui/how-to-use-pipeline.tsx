@@ -38,9 +38,6 @@ export function HowToUsePipeline() {
         <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-display text-zinc-100">
           How to Use Noctra
         </h3>
-        <p className="text-zinc-500 text-sm font-mono">
-          Three simple steps to automate your daily Workspace tasks.
-        </p>
       </div>
 
       {/* Grid Container with Dotted Animated Pipeline */}

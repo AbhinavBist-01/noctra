@@ -658,7 +658,6 @@ export default function LandingPageClient() {
         <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
           <h2 className="text-xs font-mono text-amber-500 uppercase tracking-widest font-bold">Workspace Sync</h2>
           <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Zero friction API pipelines</h3>
-          <p className="text-zinc-500 text-sm">Direct, secure connection to Google services with real-time feedback loops.</p>
         </div>
 
         <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-white/[0.03] max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden shadow-xl shadow-black/35">
@@ -747,7 +746,6 @@ export default function LandingPageClient() {
         <div className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-3">
           <h2 className="text-xs font-mono text-amber-500 uppercase tracking-widest font-bold">Core Capabilities</h2>
           <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Built for speed, styled for the night</h3>
-          <p className="text-zinc-500 text-sm">No complex dropdowns or calendar picking. Type, review, and confirm.</p>
         </div>
 
         <AgentBentoGrid />
