@@ -537,7 +537,7 @@ export function Card3({ activities }: { activities?: any[] }) {
 
         return (
           <motion.div
-            key={l.agent}
+            key={`${l.agent}-${i}`}
             className="absolute left-0 right-0 mx-auto px-1.5"
             style={{ zIndex }}
             animate={{

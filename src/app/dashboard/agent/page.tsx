@@ -3,26 +3,20 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Robot,
+  Sparkle,
   EnvelopeSimple,
   CalendarBlank,
   Lightning,
   Check,
   X,
   Warning,
-  Sparkle,
   ClockCounterClockwise,
-  Plus,
   PaperPlaneTilt,
-  CaretDown,
   Star,
-  ArrowsClockwise,
-  Globe,
-  SlidersHorizontal,
+  Cpu,
+  Trash,
 } from "@phosphor-icons/react";
 import { apiFetch } from "@/server/lib/api-client";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
-import { FormattedMessageText } from "@/components/ui/formatted-message-text";
 import type {
   CommandPreviewAction,
   CommandExecutionResult,
@@ -77,7 +71,7 @@ type ChatMessage =
   | AgentLoadingMessage;
 
 /* ------------------------------------------------------------------ */
-/*  Helpers & Quick Nav Config                                         */
+/*  Helpers & Quick Suggestions                                        */
 /* ------------------------------------------------------------------ */
 
 const uid = () => crypto.randomUUID();
@@ -87,33 +81,27 @@ const quickNavButtons = [
     id: "summarize",
     label: "Summarize Inbox",
     prompt: "Summarize my recent unread emails and highlight action items.",
-    icon: <Sparkle size={14} weight="fill" className="text-amber-400" />,
+    icon: <Sparkle size={13} className="text-amber-400" />,
   },
   {
     id: "meeting",
     label: "Schedule Meeting",
     prompt: "Schedule a sync meeting tomorrow at 3pm with team.",
-    icon: <CalendarBlank size={14} weight="duotone" className="text-blue-400" />,
+    icon: <CalendarBlank size={13} className="text-blue-400" />,
   },
   {
     id: "reply",
     label: "Draft Quick Reply",
     prompt: "Draft a polite reply about being late for today's call.",
-    icon: <Lightning size={14} weight="fill" className="text-violet-400" />,
+    icon: <Lightning size={13} className="text-violet-400" />,
   },
   {
     id: "important",
     label: "Check Priority",
     prompt: "Show important emails requiring my immediate decision.",
-    icon: <Star size={14} weight="fill" className="text-emerald-400" />,
+    icon: <Star size={13} className="text-emerald-400" />,
   },
 ];
-
-const msgVariants = {
-  initial: { opacity: 0, y: 16, scale: 0.98 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -8, scale: 0.98 },
-};
 
 function isEmail(action: CommandPreviewAction): action is EmailCommandAction {
   return action.type === "email_send" || action.type === "email_draft";
@@ -137,7 +125,7 @@ function formatTime(iso: string) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Action Card                                                        */
+/*  Minimal Action Card Component                                      */
 /* ------------------------------------------------------------------ */
 
 function ActionCard({
@@ -153,7 +141,6 @@ function ActionCard({
 }) {
   const email = isEmail(action);
   const calendar = isCalendar(action);
-  const isEmail_ = action.type === "email_send" || action.type === "email_draft";
 
   const typeLabel =
     action.type === "email_send"
@@ -162,125 +149,76 @@ function ActionCard({
         ? "Draft Email"
         : "Calendar Invite";
 
-  const accentColor = isEmail_
-    ? {
-        ring: "ring-amber-500/20",
-        glow: "bg-amber-500/[0.03]",
-        icon: "bg-amber-500/10 text-amber-400",
-        badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-      }
-    : {
-        ring: "ring-blue-500/20",
-        glow: "bg-blue-500/[0.03]",
-        icon: "bg-blue-500/10 text-blue-400",
-        badge: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-      };
-
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative rounded-2xl border border-white/[0.08] ${accentColor.glow} ring-1 ${accentColor.ring} overflow-hidden`}
+      className="rounded-xl border border-white/[0.08] bg-zinc-900/40 p-4 space-y-3"
     >
-      <div
-        className={`absolute top-0 left-0 right-0 h-px ${
-          isEmail_
-            ? "bg-gradient-to-r from-transparent via-amber-500/30 to-transparent"
-            : "bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"
-        }`}
-      />
-
-      <div className="p-4.5 space-y-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${accentColor.icon}`}>
-              {email ? (
-                <EnvelopeSimple size={16} weight="duotone" />
-              ) : (
-                <CalendarBlank size={16} weight="duotone" />
-              )}
-            </div>
-            <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${accentColor.badge}`}>
-              {typeLabel}
-            </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-zinc-800 text-zinc-300">
+            {email ? <EnvelopeSimple size={13} /> : <CalendarBlank size={13} />}
           </div>
-          {status === "confirmed" && (
-            <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-              <Check size={10} weight="bold" /> Confirmed
-            </span>
-          )}
-          {status === "cancelled" && (
-            <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-zinc-500 bg-white/[0.03] border border-white/[0.06] px-2.5 py-1 rounded-full">
-              <X size={10} weight="bold" /> Cancelled
-            </span>
-          )}
+          <span className="text-xs font-mono font-medium text-zinc-300">{typeLabel}</span>
         </div>
+        {status === "confirmed" && (
+          <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+            <Check size={10} /> Confirmed
+          </span>
+        )}
+        {status === "cancelled" && (
+          <span className="flex items-center gap-1 text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-2 py-0.5 rounded-md">
+            <X size={10} /> Cancelled
+          </span>
+        )}
+      </div>
 
-        <div className="h-px bg-white/[0.04]" />
-
+      <div className="text-xs space-y-1.5 pt-1">
         {email && (
-          <div className="space-y-2">
-            <DetailRow label="To" value={(action).to.join(", ")} />
-            <DetailRow label="Subject" value={(action).subject} highlight />
-            <div className="flex gap-3">
-              <span className="text-[11px] font-mono text-zinc-500 shrink-0 mt-0.5 w-14">Body</span>
-              <p className="text-[12px] text-zinc-300 leading-relaxed font-sans line-clamp-4">
-                {(action).body}
-              </p>
+          <>
+            <div className="text-zinc-400">
+              <span className="text-zinc-600 font-mono mr-2">To:</span>
+              {action.to.join(", ")}
             </div>
-          </div>
+            <div className="text-zinc-200 font-medium">
+              <span className="text-zinc-600 font-mono mr-2">Subject:</span>
+              {action.subject}
+            </div>
+            <p className="text-zinc-400 line-clamp-3 text-[11px] leading-relaxed pt-1 border-t border-white/[0.04]">
+              {action.body}
+            </p>
+          </>
         )}
 
         {calendar && (
-          <div className="space-y-2">
-            <DetailRow label="Title" value={(action).title} highlight />
-            <DetailRow
-              label="Time"
-              value={`${formatTime((action).start)} → ${formatTime((action).end)}`}
-            />
-            {(action).attendees.length > 0 && (
-              <DetailRow
-                label="Guests"
-                value={(action).attendees.map((a) => a.name || a.email).join(", ")}
-              />
-            )}
-          </div>
-        )}
-
-        {status === "pending" && (
-          <div className="flex items-center gap-2.5 pt-1">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onConfirm}
-              className="flex items-center gap-2 rounded-xl bg-amber-500/20 border border-amber-500/30 px-4 py-1.5 text-xs font-mono font-bold text-amber-300 hover:bg-amber-500/30 transition-all cursor-pointer shadow-sm"
-            >
-              <Check size={12} weight="bold" /> Confirm Action
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onCancel}
-              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-mono font-medium text-zinc-400 hover:bg-white/[0.05] transition-all cursor-pointer"
-            >
-              Cancel
-            </motion.button>
-          </div>
+          <>
+            <div className="text-zinc-200 font-medium">{action.title}</div>
+            <div className="text-zinc-400 text-[11px]">
+              {formatTime(action.start)} → {formatTime(action.end)}
+            </div>
+          </>
         )}
       </div>
-    </motion.div>
-  );
-}
 
-function DetailRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="flex gap-3">
-      <span className="text-[11px] font-mono text-zinc-500 shrink-0 mt-0.5 w-14">{label}</span>
-      <span className={`text-[12px] font-mono leading-relaxed ${highlight ? "text-zinc-100 font-semibold" : "text-zinc-300"}`}>
-        {value}
-      </span>
-    </div>
+      {status === "pending" && (
+        <div className="flex items-center gap-2 pt-2 border-t border-white/[0.04]">
+          <button
+            onClick={onConfirm}
+            className="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-950 hover:bg-white transition-all cursor-pointer"
+          >
+            <Check size={12} /> Confirm
+          </button>
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-white/[0.08] px-3 py-1 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -288,43 +226,32 @@ function ResultCard({ result }: { result: CommandExecutionResult }) {
   const ok = result.status === "success";
   const label =
     result.type === "email_send"
-      ? "Email sent successfully"
+      ? "Email sent"
       : result.type === "email_draft"
-        ? "Email saved to drafts"
-        : "Calendar event created";
+        ? "Draft saved"
+        : "Event created";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
-        ok ? "border-emerald-500/20 bg-emerald-500/[0.06]" : "border-red-500/20 bg-red-500/[0.06]"
+    <div
+      className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs font-mono ${
+        ok ? "border-emerald-500/20 bg-emerald-500/[0.04] text-emerald-400" : "border-red-500/20 bg-red-500/[0.04] text-red-400"
       }`}
     >
-      <div className={`flex items-center justify-center w-6 h-6 rounded-lg shrink-0 ${ok ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
-        {ok ? <Check size={12} weight="bold" /> : <X size={12} weight="bold" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-xs font-mono font-semibold ${ok ? "text-emerald-400" : "text-red-400"}`}>
-          {label}
-        </p>
-        {result.error && (
-          <p className="text-[11px] text-red-400/80 font-mono mt-0.5 truncate">{result.error}</p>
-        )}
-      </div>
-    </motion.div>
+      {ok ? <Check size={12} /> : <X size={12} />}
+      <span>{label}</span>
+    </div>
   );
 }
 
 function TypingDots() {
   return (
-    <div className="flex items-center gap-1.5 px-1 py-2">
+    <div className="flex items-center gap-1 py-1">
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
-          className="block w-2 h-2 rounded-full bg-amber-400/60"
-          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.15, 0.8] }}
-          transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.22 }}
+          className="block w-1.5 h-1.5 rounded-full bg-zinc-500"
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
         />
       ))}
     </div>
@@ -332,14 +259,13 @@ function TypingDots() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Main ChatGPT-Inspired Minimalist Agent Page                        */
+/*  Main Minimal Agent Page                                            */
 /* ------------------------------------------------------------------ */
 
 export default function AgentPage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const [mode, setMode] = useState<"chat" | "work">("chat");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Restore existing history
@@ -508,170 +434,118 @@ export default function AgentPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="relative flex flex-col h-full bg-[#050508] text-zinc-100 font-sans overflow-hidden">
-      <AmbientParticles className="opacity-15 pointer-events-none" />
-
-      {/* Top Header Bar — ChatGPT Inspired */}
-      <header className="relative z-20 flex items-center justify-between border-b border-white/[0.04] bg-[#050508]/80 px-6 py-3.5 backdrop-blur-xl">
-        {/* Left: Brand/Model Dropdown */}
-        <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-          <span className="font-display font-extrabold text-sm text-zinc-100 tracking-tight">Noctra Agent</span>
-          <CaretDown size={14} className="text-zinc-500" />
-        </div>
-
-        {/* Center: Mode Pill Selector (Chat | Work) */}
-        <div className="flex items-center rounded-full border border-white/[0.08] bg-zinc-900/60 p-1 shadow-inner">
-          <button
-            onClick={() => setMode("chat")}
-            className={`rounded-full px-4 py-1 text-xs font-semibold transition-all cursor-pointer ${
-              mode === "chat" ? "bg-zinc-800 text-zinc-100 shadow-md" : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            Chat
-          </button>
-          <button
-            onClick={() => setMode("work")}
-            className={`flex items-center gap-1 rounded-full px-4 py-1 text-xs font-semibold transition-all cursor-pointer ${
-              mode === "work" ? "bg-zinc-800 text-zinc-100 shadow-md" : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <Sparkle size={12} className="text-amber-400" /> Work
-          </button>
-        </div>
-
-        {/* Right: Actions / Clear */}
+    <div className="relative flex flex-col h-full bg-[#08080a] text-zinc-100 font-sans">
+      {/* Top Header — Minimalist */}
+      <header className="flex items-center justify-between border-b border-white/[0.06] bg-[#08080a] px-6 py-3 shrink-0">
         <div className="flex items-center gap-2">
-          {messages.length > 0 && (
-            <button
-              onClick={() => {
-                setMessages([]);
-                try {
-                  localStorage.removeItem("noctra_agent_conversations");
-                } catch {
-                  /* ignore */
-                }
-              }}
-              className="flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-zinc-400 transition-all cursor-pointer"
-            >
-              <ClockCounterClockwise size={13} />
-              Clear
-            </button>
-          )}
+          <Cpu size={15} className="text-zinc-400" />
+          <span className="text-xs font-mono font-medium text-zinc-300">Agent Command Panel</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1" />
         </div>
+
+        {messages.length > 0 && (
+          <button
+            onClick={() => {
+              setMessages([]);
+              try {
+                localStorage.removeItem("noctra_agent_conversations");
+              } catch {
+                /* ignore */
+              }
+            }}
+            className="flex items-center gap-1 text-[11px] font-mono text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+          >
+            <Trash size={12} />
+            Clear
+          </button>
+        )}
       </header>
 
-      {/* Main Chat Scroll Container */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-8 scroll-smooth">
-        <div className="mx-auto max-w-2xl space-y-6">
-          {/* Empty Minimalist State — ChatGPT Inspired */}
-          <AnimatePresence>
-            {isEmpty && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                className="flex flex-col items-center justify-center gap-6 pt-[20vh] pb-10 text-center"
-              >
-                <h1 className="text-3xl font-normal tracking-tight text-zinc-100 font-display">
-                  Ready when you are.
-                </h1>
+      {/* Main Content / Chat */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+        <div className="mx-auto max-w-xl space-y-5">
+          {/* Empty State */}
+          {isEmpty && (
+            <div className="flex flex-col items-center justify-center pt-24 pb-12 text-center">
+              <h1 className="text-xl font-medium tracking-tight text-zinc-200">
+                What would you like to automate?
+              </h1>
+              <p className="text-xs text-zinc-500 mt-1.5 max-w-sm">
+                Issue natural language commands to search emails, draft replies, or manage calendar events.
+              </p>
 
-                {/* Subtle Floating Capsule Bar Prompt Placeholder */}
-                <p className="text-xs text-zinc-500 font-mono tracking-wide max-w-xs leading-relaxed">
-                  Type a command or choose a quick action below to run automated Gmail & Calendar tasks.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              {/* Minimal Suggestion Chips */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-8 w-full max-w-md">
+                {quickNavButtons.map((btn) => (
+                  <button
+                    key={btn.id}
+                    onClick={() => setInput(btn.prompt)}
+                    className="flex items-center gap-2.5 rounded-lg border border-white/[0.06] bg-zinc-900/50 hover:bg-zinc-800/80 p-3 text-left transition-all cursor-pointer text-xs"
+                  >
+                    <div className="shrink-0">{btn.icon}</div>
+                    <span className="text-zinc-300 font-medium text-[11px]">{btn.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* Conversation History */}
+          {/* Conversation Messages */}
           <AnimatePresence mode="popLayout">
             {messages.map((msg) => (
               <motion.div
                 key={msg.id}
-                variants={msgVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ type: "spring", stiffness: 320, damping: 30 }}
-                layout
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {/* User Message Bubble */}
+                {/* User Bubble */}
                 {msg.role === "user" && (
-                  <div className="max-w-[80%] rounded-2xl bg-zinc-800/90 border border-white/[0.08] px-4.5 py-3 shadow-md">
-                    <p className="text-sm text-zinc-100 leading-relaxed font-sans">{msg.text}</p>
+                  <div className="max-w-[85%] rounded-lg bg-zinc-800 px-3.5 py-2.5 text-xs text-zinc-100">
+                    {msg.text}
                   </div>
                 )}
 
-                {/* Agent Response Area */}
+                {/* Agent Bubble */}
                 {msg.role === "agent" && (
-                  <div className="flex gap-3 max-w-[95%] w-full">
-                    {/* Avatar Icon */}
-                    <div className="shrink-0 mt-0.5">
-                      <div className="w-7 h-7 rounded-full bg-zinc-800 border border-white/[0.08] flex items-center justify-center text-amber-400">
-                        <Robot size={15} weight="bold" />
+                  <div className="w-full max-w-[95%] space-y-2">
+                    {msg.kind === "loading" && <TypingDots />}
+
+                    {msg.kind === "preview" && (
+                      <div className="space-y-2">
+                        {msg.warnings.length > 0 && (
+                          <div className="flex items-center gap-2 text-xs font-mono text-amber-400 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+                            <Warning size={14} />
+                            <span>{msg.warnings.join(", ")}</span>
+                          </div>
+                        )}
+                        {msg.actions.map((action) => (
+                          <ActionCard
+                            key={action.id}
+                            action={action}
+                            status={msg.status}
+                            onConfirm={() => confirmActions(msg.id, msg.actions)}
+                            onCancel={() => cancelActions(msg.id)}
+                          />
+                        ))}
                       </div>
-                    </div>
+                    )}
 
-                    {/* Content Body */}
-                    <div className="space-y-3 flex-1 min-w-0">
-                      {msg.kind === "loading" && <TypingDots />}
+                    {msg.kind === "result" && (
+                      <div className="space-y-1.5">
+                        {msg.results.map((r) => (
+                          <ResultCard key={r.actionId} result={r} />
+                        ))}
+                      </div>
+                    )}
 
-                      {msg.kind === "preview" && (
-                        <>
-                          {msg.warnings.length > 0 && (
-                            <div className="flex items-start gap-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/[0.06] px-4 py-3 text-xs font-mono text-yellow-400">
-                              <Warning size={14} weight="bold" className="shrink-0 mt-0.5" />
-                              <div className="space-y-1">
-                                {msg.warnings.map((w, i) => (
-                                  <p key={i}>{w}</p>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <p className="text-[11px] text-zinc-500 font-mono">
-                            Prepared {msg.actions.length} action{msg.actions.length !== 1 ? "s" : ""}:
-                          </p>
-                          <div className="space-y-3">
-                            {msg.actions.map((action) => (
-                              <ActionCard
-                                key={action.id}
-                                action={action}
-                                status={msg.status}
-                                onConfirm={() => confirmActions(msg.id, msg.actions)}
-                                onCancel={() => cancelActions(msg.id)}
-                              />
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {msg.kind === "result" && (
-                        <div className="space-y-2.5">
-                          <p className="text-[11px] text-zinc-500 font-mono flex items-center gap-1.5">
-                            <Check size={12} weight="bold" className="text-emerald-400" />
-                            Execution complete
-                          </p>
-                          {msg.results.map((r) => (
-                            <ResultCard key={r.actionId} result={r} />
-                          ))}
-                        </div>
-                      )}
-
-                      {msg.kind === "error" && (
-                        <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-red-500/15 text-red-400 shrink-0 mt-0.5">
-                            <X size={12} weight="bold" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-mono font-semibold text-red-400">Something went wrong</p>
-                            <p className="text-[11px] font-mono text-red-400/70 mt-0.5 leading-relaxed">{msg.error}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    {msg.kind === "error" && (
+                      <div className="text-xs font-mono text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+                        {msg.error}
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -680,64 +554,32 @@ export default function AgentPage() {
         </div>
       </div>
 
-      {/* Floating Capsule Input Area — ChatGPT Inspired */}
-      <div className="w-full border-t border-white/[0.03] bg-gradient-to-t from-[#050508] via-[#050508]/90 to-transparent pt-3 pb-6 px-4 sm:px-8 shrink-0">
-        <div className="mx-auto max-w-2xl space-y-3.5">
-          {/* Subtle Quick Navigation Pills */}
-          <div className="flex items-center justify-center gap-2 overflow-x-auto py-1 no-scrollbar">
-            {quickNavButtons.map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => {
-                  setInput(btn.prompt);
-                }}
-                className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-zinc-100 transition-all cursor-pointer shrink-0 shadow-sm hover:scale-[1.02]"
-              >
-                {btn.icon}
-                <span>{btn.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* ChatGPT Style Floating Capsule Bar */}
+      {/* Minimal Bottom Command Bar */}
+      <div className="p-4 border-t border-white/[0.06] bg-[#08080a] shrink-0">
+        <div className="mx-auto max-w-xl">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void sendCommand(input);
             }}
-            className="relative flex items-center rounded-full border border-white/[0.1] bg-zinc-900/90 px-4 py-2.5 shadow-2xl backdrop-blur-xl focus-within:border-white/[0.2] transition-all"
+            className="relative flex items-center rounded-lg border border-white/[0.1] bg-zinc-900/80 px-3 py-2 focus-within:border-zinc-500 transition-all"
           >
-            {/* Plus Icon */}
-            <button
-              type="button"
-              className="flex items-center justify-center w-8 h-8 rounded-full text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors shrink-0 mr-1"
-            >
-              <Plus size={18} />
-            </button>
-
-            {/* Input field */}
             <input
               type="text"
-              placeholder="Ask anything..."
+              placeholder="Type a command (e.g. Schedule meeting tomorrow at 2pm)..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isSending}
-              className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none px-2 font-sans"
+              className="w-full bg-transparent text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none px-1 font-sans"
             />
-
-            {/* Send Button */}
             <button
               type="submit"
               disabled={!input.trim() || isSending}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 text-zinc-950 disabled:opacity-30 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all shrink-0 cursor-pointer"
+              className="flex items-center justify-center w-7 h-7 rounded-md bg-zinc-100 text-zinc-950 disabled:opacity-20 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all shrink-0 cursor-pointer"
             >
-              <PaperPlaneTilt size={14} weight="fill" />
+              <PaperPlaneTilt size={13} weight="fill" />
             </button>
           </form>
-
-          <p className="text-center text-[10px] text-zinc-600 font-mono">
-            Noctra Agent handles emails & calendar invites securely via Corsair.
-          </p>
         </div>
       </div>
     </div>
