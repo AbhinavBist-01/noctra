@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { processWebhook } from "corsair";
 import { corsair } from "@/server/corsair";
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const result = await processWebhook(
       corsair,
-      headers as Record<string, string | string[] | undefined>,
+      headers,
       decodedBody,
       queryWithTenant,
     );

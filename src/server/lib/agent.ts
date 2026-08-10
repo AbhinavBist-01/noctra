@@ -1,5 +1,4 @@
 import { OpenAI } from "openai";
-import { GoogleGenAI } from "@google/genai";
 import { telemetryService } from "../telemetry/service";
 
 export type AgentMessage = {
@@ -19,110 +18,52 @@ type AgentOptions = {
 };
 
 let openaiClient: OpenAI | null = null;
-let geminiClient: GoogleGenAI | null = null;
 
-function getClient(): { 
-  openai?: OpenAI; 
-  gemini?: GoogleGenAI; 
-} {
-  const providerSetting = (process.env.AI_PROVIDER || "").toLowerCase();
+function getOpenAIClient(): OpenAI {
   const openaiKey = process.env.OPENAI_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
 
-  // Check OpenAI first if OPENAI_API_KEY is present or AI_PROVIDER=openai
-  if (providerSetting === "openai" || (openaiKey && providerSetting !== "google" && providerSetting !== "gemini")) {
-    if (!openaiKey) {
-      throw new Error("AI_PROVIDER is set to 'openai' but OPENAI_API_KEY is missing from environment.");
-    }
-    if (!openaiClient) {
-      openaiClient = new OpenAI({ apiKey: openaiKey });
-      console.log("[agent] Initialized OpenAI client (API Provider: OpenAI)");
-    }
-    return { openai: openaiClient };
-  } else if (geminiKey) {
-    if (!geminiClient) {
-      geminiClient = new GoogleGenAI({ apiKey: geminiKey });
-      console.log("[agent] Initialized Google GenAI client (API Provider: Google)");
-    }
-    return { gemini: geminiClient };
-  } else {
-    throw new Error("Neither OPENAI_API_KEY nor GEMINI_API_KEY is set in environment.");
+  if (!openaiKey) {
+    throw new Error("OPENAI_API_KEY is missing from environment variables.");
   }
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: openaiKey });
+    console.log("[agent] Initialized OpenAI client");
+  }
+  return openaiClient;
 }
 
 export async function agent(
   messages: AgentMessage[],
   opts: AgentOptions = {},
 ): Promise<string> {
-  const { openai, gemini } = getClient();
+  const openai = getOpenAIClient();
   const startTime = Date.now();
 
   // Generous max token limit to prevent truncation mid-sentence or mid-JSON
   const maxTokens = opts.maxTokens ?? 2500;
 
-  if (openai) {
-    try {
-      const model = opts.model ?? "gpt-4o-mini";
-      const response = await openai.chat.completions.create({
-        model,
-        max_tokens: maxTokens,
-        temperature: opts.temperature ?? 0.2,
-        messages: messages.map((m) => ({
-          role: m.role as "system" | "user" | "assistant",
-          content: m.content,
-        })),
-      });
+  try {
+    const model = opts.model ?? "gpt-4o-mini";
+    const response = await openai.chat.completions.create({
+      model,
+      max_tokens: maxTokens,
+      temperature: opts.temperature ?? 0.2,
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+    });
 
-      const latency = Date.now() - startTime;
-      const promptTokens = response.usage?.prompt_tokens ?? 0;
-      const completionTokens = response.usage?.completion_tokens ?? 0;
-      telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
+    const latency = Date.now() - startTime;
+    const promptTokens = response.usage?.prompt_tokens ?? 0;
+    const completionTokens = response.usage?.completion_tokens ?? 0;
+    telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
 
-      return (response.choices?.[0]?.message?.content ?? "").trim();
-    } catch (error) {
-      throw new Error(
-        `OpenAI Agent error: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  } else if (gemini) {
-    try {
-      const systemInstructions = messages
-        .filter((m) => m.role === "system")
-        .map((m) => m.content)
-        .join("\n\n");
-
-      const contents = messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }));
-
-      const model = opts.model ?? "gemini-2.5-flash";
-
-      const response = await gemini.models.generateContent({
-        model,
-        contents,
-        config: {
-          temperature: opts.temperature ?? 0.2,
-          maxOutputTokens: maxTokens,
-          systemInstruction: systemInstructions || undefined,
-        },
-      });
-
-      const latency = Date.now() - startTime;
-      const promptTokens = response.usageMetadata?.promptTokenCount ?? 0;
-      const completionTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
-      telemetryService.recordLLMCall(model, promptTokens, completionTokens, latency);
-
-      return (response.text ?? "").trim();
-    } catch (error) {
-      throw new Error(
-        `Gemini Agent error: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  } else {
-    throw new Error("No active LLM client configured");
+    return (response.choices?.[0]?.message?.content ?? "").trim();
+  } catch (error) {
+    throw new Error(
+      `OpenAI Agent error: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

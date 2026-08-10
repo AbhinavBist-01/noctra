@@ -34,7 +34,7 @@ export const requireAuth = async (
       throw new AppError("VALIDATION_ERROR", "Unauthorized — sign in required");
     }
 
-    req.session = session as Request["session"];
+    req.session = session;
 
     // Automatically ensure DEKs & OAuth tokens are provisioned for this user
     await ensureUserSync(session.user.id);

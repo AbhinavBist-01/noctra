@@ -112,7 +112,7 @@ export const getGmailMessages = async (input: {
       if (cacheList.length > 0) {
         allMessages = cacheList.map((m) => {
           const cachedRow = m as unknown as { data?: RawGmailMessage } | null;
-          return (cachedRow?.data ?? m) as RawGmailMessage;
+          return (cachedRow?.data ?? m);
         });
 
         // Trigger non-blocking background live sync so new emails populate automatically
@@ -196,7 +196,7 @@ export const getGmailMessageById = async (messageId: string, userId?: string) =>
     if (!entity) return null;
     const cachedRow = entity as unknown as { data?: RawGmailMessage } | null;
     const entityData = cachedRow?.data ?? entity;
-    return mapGmailMessageDetail(entityData as RawGmailMessage);
+    return mapGmailMessageDetail(entityData);
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -309,7 +309,7 @@ export const getGmailDrafts = async (userId?: string) => {
           id?: string;
         };
         const msg = rawDraft.data?.message ?? rawDraft.data ?? rawDraft.message ?? rawDraft;
-        return mapGmailMessageSummary(msg as RawGmailMessage);
+        return mapGmailMessageSummary(msg);
       }),
     };
   } catch (error: unknown) {

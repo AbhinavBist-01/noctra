@@ -134,7 +134,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     authClient.getSession().then((res) => {
-      if (res.data) setSession(res.data as any);
+      if (res.data) setSession(res.data);
     });
 
     (async () => {

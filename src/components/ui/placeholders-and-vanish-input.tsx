@@ -107,7 +107,7 @@ export function PlaceholdersAndVanishInput({
   }, [draw]);
 
   const animate = (start: number) => {
-    const animateFrame = (pos: number = 0) => {
+    const animateFrame = (pos = 0) => {
       requestAnimationFrame(() => {
         const newArr: { x: number; y: number; r: number; color: string }[] = [];
         for (let i = 0; i < newDataRef.current.length; i++) {

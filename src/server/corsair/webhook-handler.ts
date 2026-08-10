@@ -9,7 +9,7 @@ export async function handleWebhook(req: Request) {
     Object.fromEntries(req.headers), // headers
     await req.json(), // body
     {
-      tenantId: url.searchParams.get("tenantId") as string, // tenant id
+      tenantId: url.searchParams.get("tenantId")!, // tenant id
     },
   );
 

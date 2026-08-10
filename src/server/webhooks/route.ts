@@ -14,7 +14,7 @@ webhookAdminRoute.get("/log", async (_req, res) => {
 webhookRoute.post("/gmail", async (req, res, next) => {
   try {
     const result = await processWebhook(
-      req.headers as Record<string, string | string[] | undefined>,
+      req.headers,
       req.body,
       req.query as Record<string, string | string[] | undefined>,
     );
@@ -27,7 +27,7 @@ webhookRoute.post("/gmail", async (req, res, next) => {
 webhookRoute.post("/calendar", async (req, res, next) => {
   try {
     const result = await processWebhook(
-      req.headers as Record<string, string | string[] | undefined>,
+      req.headers,
       req.body,
       req.query as Record<string, string | string[] | undefined>,
     );

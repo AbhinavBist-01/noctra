@@ -85,7 +85,7 @@ const parseDate = (text?: string): { start: string; end: string } => {
     }
   }
 
-  const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  const timeMatch = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i.exec(text);
   if (timeMatch) {
     let hours = parseInt(timeMatch[1]!);
     const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
@@ -219,7 +219,7 @@ const parseReferentialAction = (
   text: string,
   previousActions: CommandPreviewAction[],
 ): CommandPreviewAction | null => {
-  const match = text.match(referentialPattern);
+  const match = referentialPattern.exec(text);
   if (!match) return null;
 
   const actionType = match[1]?.toLowerCase();
@@ -235,9 +235,7 @@ const parseReferentialAction = (
 
   const lastCalendarAction = [...previousActions]
     .reverse()
-    .find((a) => a.type === "calendar_invite") as
-    | CalendarInviteCommandAction
-    | undefined;
+    .find((a) => a.type === "calendar_invite");
 
   if (
     (actionType === "email" || actionType === "an email") &&

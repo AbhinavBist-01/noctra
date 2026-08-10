@@ -61,7 +61,7 @@ function detectWebhookType(
   body: Record<string, unknown> | string,
 ): { type: WebhookLogEntry["type"]; event: string } {
   if (typeof body === "string") return { type: "unknown", event: "raw_string" };
-  const b = body as Record<string, unknown>;
+  const b = body;
 
   if ("historyId" in b || "emailAddress" in b) {
     return { type: "gmail", event: b.historyId ? `historyId:${b.historyId}` : "inbox_change" };
@@ -100,7 +100,7 @@ async function handleGmailNotification(historyId: string) {
             const upsertData = {
               ...(data as any),
               id: item.id,
-            } as any;
+            };
             await tenant.gmail.db.messages.upsertByEntityId(item.id, upsertData);
           }
           fetched++;
@@ -135,7 +135,7 @@ export const processWebhook = async (
 
   // Try corsair webhook processing first
   try {
-    const result = await corsairProcessWebhook(corsair, headers, decodedBody as string | Record<string, unknown>, query);
+    const result = await corsairProcessWebhook(corsair, headers, decodedBody, query);
     if (result.plugin) {
       addWebhookLog({ type, event: `${result.plugin}.${result.action}`, status: "success" });
       console.log(`[WEBHOOK] Handled by ${result.plugin}.${result.action}`);

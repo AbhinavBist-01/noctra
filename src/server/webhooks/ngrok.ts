@@ -37,7 +37,7 @@ function killNgrokProcess(): void {
   }
 }
 
-export async function startNgrok(port: number = 4000): Promise<string> {
+export async function startNgrok(port = 4000): Promise<string> {
   if (tunnelUrl) {
     console.log(`[ngrok] Tunnel already active at ${tunnelUrl}`);
     return tunnelUrl;
@@ -62,7 +62,7 @@ export async function startNgrok(port: number = 4000): Promise<string> {
       startupLog += msg;
 
       // v3 format: url=https://xxxx.ngrok-free.app
-      const urlMatch = msg.match(/url=https:\/\/([^\s]+)/);
+      const urlMatch = /url=https:\/\/([^\s]+)/.exec(msg);
       if (urlMatch && !resolved) {
         tunnelUrl = `https://${urlMatch[1]}`;
         resolved = true;
@@ -71,7 +71,7 @@ export async function startNgrok(port: number = 4000): Promise<string> {
       }
 
       // v2 format: Forwarding https://xxxx.ngrok.io -> http://localhost:PORT
-      const fwdMatch = msg.match(/Forwarding\s+(https:\/\/[^\s]+)/);
+      const fwdMatch = /Forwarding\s+(https:\/\/[^\s]+)/.exec(msg);
       if (fwdMatch && !resolved) {
         tunnelUrl = fwdMatch[1] ?? null;
         resolved = true;
@@ -80,8 +80,8 @@ export async function startNgrok(port: number = 4000): Promise<string> {
       }
     }
 
-    proc.stdout!.on("data", onData);
-    proc.stderr!.on("data", onData);
+    proc.stdout.on("data", onData);
+    proc.stderr.on("data", onData);
 
     proc.on("error", (err) => {
       if (!resolved) reject(err);
@@ -99,7 +99,7 @@ export async function startNgrok(port: number = 4000): Promise<string> {
     const pollInterval = setInterval(() => {
       if (resolved) { clearInterval(pollInterval); return; }
       // Check accumulated log for URL patterns
-      const urlMatch = startupLog.match(/url=https:\/\/([^\s]+)/);
+      const urlMatch = /url=https:\/\/([^\s]+)/.exec(startupLog);
       if (urlMatch && !resolved) {
         tunnelUrl = `https://${urlMatch[1]}`;
         resolved = true;
@@ -107,7 +107,7 @@ export async function startNgrok(port: number = 4000): Promise<string> {
         resolve(tunnelUrl);
         return;
       }
-      const fwdMatch = startupLog.match(/Forwarding\s+(https:\/\/[^\s]+)/);
+      const fwdMatch = /Forwarding\s+(https:\/\/[^\s]+)/.exec(startupLog);
       if (fwdMatch && !resolved) {
         tunnelUrl = fwdMatch[1] ?? null;
         resolved = true;

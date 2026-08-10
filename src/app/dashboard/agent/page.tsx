@@ -221,12 +221,12 @@ function ActionCard({
 
         {email && (
           <div className="space-y-2">
-            <DetailRow label="To" value={(action as EmailCommandAction).to.join(", ")} />
-            <DetailRow label="Subject" value={(action as EmailCommandAction).subject} highlight />
+            <DetailRow label="To" value={(action).to.join(", ")} />
+            <DetailRow label="Subject" value={(action).subject} highlight />
             <div className="flex gap-3">
               <span className="text-[11px] font-mono text-zinc-500 shrink-0 mt-0.5 w-14">Body</span>
               <p className="text-[12px] text-zinc-300 leading-relaxed font-sans line-clamp-4">
-                {(action as EmailCommandAction).body}
+                {(action).body}
               </p>
             </div>
           </div>
@@ -234,15 +234,15 @@ function ActionCard({
 
         {calendar && (
           <div className="space-y-2">
-            <DetailRow label="Title" value={(action as CalendarInviteCommandAction).title} highlight />
+            <DetailRow label="Title" value={(action).title} highlight />
             <DetailRow
               label="Time"
-              value={`${formatTime((action as CalendarInviteCommandAction).start)} → ${formatTime((action as CalendarInviteCommandAction).end)}`}
+              value={`${formatTime((action).start)} → ${formatTime((action).end)}`}
             />
-            {(action as CalendarInviteCommandAction).attendees.length > 0 && (
+            {(action).attendees.length > 0 && (
               <DetailRow
                 label="Guests"
-                value={(action as CalendarInviteCommandAction).attendees.map((a) => a.name || a.email).join(", ")}
+                value={(action).attendees.map((a) => a.name || a.email).join(", ")}
               />
             )}
           </div>
