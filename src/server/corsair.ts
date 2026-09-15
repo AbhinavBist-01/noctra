@@ -104,3 +104,7 @@ if (process.env.BETTER_AUTH_GOOGLE_CLIENT_ID && process.env.BETTER_AUTH_GOOGLE_C
   corsair.keys.googlecalendar.set_client_id(process.env.BETTER_AUTH_GOOGLE_CLIENT_ID).catch(() => {});
   corsair.keys.googlecalendar.set_client_secret(process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET).catch(() => {});
 }
+
+if (process.env.GMAIL_PUBSUB_TOPIC) {
+  (corsair.keys.gmail as any).set_topic_id?.(process.env.GMAIL_PUBSUB_TOPIC).catch?.(() => {});
+}

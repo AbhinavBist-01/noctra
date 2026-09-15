@@ -58,9 +58,20 @@ function decodePubSubBody(
 
 function detectWebhookType(
   headers: Record<string, string | string[] | undefined>,
-  body: Record<string, unknown> | string,
+  body: Record<string, unknown> | string | undefined | null,
 ): { type: WebhookLogEntry["type"]; event: string } {
-  if (typeof body === "string") return { type: "unknown", event: "raw_string" };
+  // Google Calendar push notifications send metadata in HTTP headers
+  const googResourceState = (headers["x-goog-resource-state"] || headers["X-Goog-Resource-State"]) as string | undefined;
+  const googChannelId = (headers["x-goog-channel-id"] || headers["X-Goog-Channel-ID"]) as string | undefined;
+  if (googResourceState || googChannelId) {
+    return { type: "calendar", event: `calendar_${googResourceState || "sync"}` };
+  }
+
+  if (!body || typeof body !== "object") {
+    if (typeof body === "string") return { type: "unknown", event: "raw_string" };
+    return { type: "unknown", event: "empty" };
+  }
+
   const b = body;
 
   if ("historyId" in b || "emailAddress" in b) {
@@ -123,19 +134,20 @@ interface GmailWebhookPayload extends Record<string, unknown> {
 
 export const processWebhook = async (
   headers: Record<string, string | string[] | undefined>,
-  body: Record<string, unknown> | string,
+  body: Record<string, unknown> | string | undefined,
   query?: { tenantId?: string; [x: string]: string | string[] | undefined },
 ) => {
   console.log("[WEBHOOK] Received");
 
   // Decode Pub/Sub envelope if present
-  const decodedBody = decodePubSubBody(body);
+  const safeBody = body ?? {};
+  const decodedBody = decodePubSubBody(safeBody);
   const decoded = typeof decodedBody === "object" && decodedBody !== null ? decodedBody as GmailWebhookPayload : null;
-  const { type, event } = detectWebhookType(headers, decoded ?? body);
+  const { type, event } = detectWebhookType(headers, decoded ?? safeBody);
 
   // Try corsair webhook processing first
   try {
-    const result = await corsairProcessWebhook(corsair, headers, decodedBody, query);
+    const result = await corsairProcessWebhook(corsair, headers, decodedBody ?? {}, query);
     if (result.plugin) {
       addWebhookLog({ type, event: `${result.plugin}.${result.action}`, status: "success" });
       console.log(`[WEBHOOK] Handled by ${result.plugin}.${result.action}`);
@@ -143,7 +155,32 @@ export const processWebhook = async (
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`[WEBHOOK] corsairProcessWebhook failed: ${message}, falling back to manual handler`);
+    console.log(`[WEBHOOK] corsairProcessWebhook fallback: ${message}`);
+  }
+
+  // Handle Google Calendar push notifications directly
+  if (type === "calendar") {
+    try {
+      const googleAccount = await db
+        .select()
+        .from(account)
+        .where(eq(account.providerId, "google"))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+
+      if (googleAccount) {
+        const { refreshCalendarEvents } = await import("../calendar/service");
+        await refreshCalendarEvents(googleAccount.userId);
+      }
+      addWebhookLog({ type: "calendar", event, status: "success", detail: "synced calendar events" });
+      console.log(`[WEBHOOK] Handled Google Calendar push notification (${event})`);
+      return { plugin: "googlecalendar", action: "eventsChanged", data: { event } };
+    } catch (calErr) {
+      const message = calErr instanceof Error ? calErr.message : String(calErr);
+      addWebhookLog({ type: "calendar", event, status: "error", detail: message });
+      console.error(`[WEBHOOK] Failed to sync calendar events:`, message);
+      return { plugin: "googlecalendar", action: "error", data: { error: message } };
+    }
   }
 
   // Fallback: handle Gmail notifications directly

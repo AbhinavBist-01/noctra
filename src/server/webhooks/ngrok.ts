@@ -230,10 +230,13 @@ export async function setupGmailWatch(
     throw new Error(`Gmail watch registration failed (${res.status}): ${errText}`);
   }
 
-  const data = (await res.json()) as { historyId: string; expiration: string };
-  console.log(
-    `[gmail-watch] Active for topic ${topicName}! HistoryId: ${data.historyId}, expires: ${new Date(Number(data.expiration)).toISOString()}`,
-  );
+  try {
+    const { corsair } = await import("../corsair");
+    await (corsair.keys.gmail as any).set_topic_id?.(topicName);
+  } catch {
+    /* ignore if not supported on root keys */
+  }
+
   return data;
 }
 

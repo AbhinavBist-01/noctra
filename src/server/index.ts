@@ -62,8 +62,15 @@ app.listen(PORT, async () => {
         .where(eq(account.providerId, "google"));
 
       for (const acc of googleAccounts) {
-        await refreshGmailMessages(acc.userId);
-        await refreshCalendarEvents(acc.userId);
+        try {
+          await refreshGmailMessages(acc.userId);
+          await refreshCalendarEvents(acc.userId);
+        } catch (accErr: unknown) {
+          const msg = accErr instanceof Error ? accErr.message : String(accErr);
+          if (!msg.includes("No DEK found") && !msg.includes("invalid_grant")) {
+            console.warn(`[Auto-Sync] Warning for user ${acc.userId}: ${msg}`);
+          }
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

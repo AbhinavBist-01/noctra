@@ -360,7 +360,11 @@ export const refreshGmailMessages = async (userId?: string) => {
       if ((msg.includes("Unauthorized") || msg.includes("401")) && userId) {
         console.log(`[GmailService] Refresh 401 for ${userId}, re-syncing tokens...`);
         const { setupUserSync } = await import("../sync/service");
-        await setupUserSync(userId);
+        const syncResult = await setupUserSync(userId);
+        if (!syncResult.gmail) {
+          console.warn(`[GmailService] Token re-sync for user ${userId} could not authenticate Gmail. Skipping.`);
+          return;
+        }
         const freshTenant = getTenant(userId);
         await doRefresh(freshTenant);
       } else {

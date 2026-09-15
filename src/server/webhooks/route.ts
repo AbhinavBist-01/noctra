@@ -15,7 +15,7 @@ webhookRoute.post("/gmail", async (req, res, next) => {
   try {
     const result = await processWebhook(
       req.headers,
-      req.body,
+      req.body ?? {},
       req.query as Record<string, string | string[] | undefined>,
     );
     res.status(200).json({ data: result });
@@ -28,7 +28,7 @@ webhookRoute.post("/calendar", async (req, res, next) => {
   try {
     const result = await processWebhook(
       req.headers,
-      req.body,
+      req.body ?? {},
       req.query as Record<string, string | string[] | undefined>,
     );
     res.status(200).json({ data: result });

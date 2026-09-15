@@ -112,12 +112,19 @@ export async function refreshGoogleAccessToken(
     } else {
       const errText = await res.text();
       console.warn(`[refreshGoogleAccessToken] Token refresh failed (${res.status}): ${errText}`);
+      if (errText.includes("invalid_grant")) {
+        console.warn(
+          `[refreshGoogleAccessToken] Stored refresh token was revoked or expired by Google for user ${userId}. Re-authentication required.`,
+        );
+        return null;
+      }
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[refreshGoogleAccessToken] Error: ${msg}`);
   }
 
+  if (isExpiringSoon) return null;
   return googleAccount.accessToken ?? null;
 }
 
@@ -150,7 +157,10 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
 
   const tokenToUse = activeToken || googleAccount.accessToken;
   if (!tokenToUse) {
-    throw new AppError("VALIDATION_ERROR", "Google access token not found.");
+    console.warn(
+      `[corsair] User ${userId} Google token is revoked or expired. Skipping sync until user re-authenticates.`,
+    );
+    return { gmail: false, calendar: false };
   }
 
   // 2. Provision rows + DEKs via the official Corsair API (idempotent)
@@ -177,6 +187,9 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
         await plugin.keys.set_expires_at(
           googleAccount.accessTokenExpiresAt.toISOString(),
         );
+      }
+      if (pluginName === "gmail" && process.env.GMAIL_PUBSUB_TOPIC) {
+        await (plugin.keys as any).set_topic_id?.(process.env.GMAIL_PUBSUB_TOPIC).catch(() => {});
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
