@@ -802,49 +802,62 @@ export default function GmailPage() {
         {/* Selected Email Detailed Reading Pane */}
         <div className="flex flex-1 min-w-0 flex-col bg-[#020208]/40 backdrop-blur-md">
           {isAgentic ? (
-            <div className="flex h-full flex-col overflow-hidden p-6 space-y-6">
-              {/* Agent Header */}
-              <div className="flex items-center gap-3 border-b border-white/[0.04] pb-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-md">
-                  <Sparkle size={18} weight="fill" className="animate-pulse text-amber-500" />
+            <div className="flex h-full flex-col overflow-hidden p-6 space-y-4 bg-[#050508]/60">
+              {/* Co-Pilot Top Header Bar */}
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Sparkle size={14} weight="fill" />
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-mono font-bold text-zinc-200 uppercase tracking-wider">Gmail Co-Pilot</h2>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-display text-base font-extrabold text-zinc-100 uppercase tracking-wide">Co-Pilot</h2>
-                  <p className="text-[10px] text-zinc-500 font-mono">Conversational inbox agent with context of all your emails</p>
-                </div>
+
+                {agentLog.length > 0 && (
+                  <button
+                    onClick={() => setAgentLog([])}
+                    className="text-[10px] font-mono text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                  >
+                    Clear Chat
+                  </button>
+                )}
               </div>
 
-              {/* Scrollable Agent Output Log */}
-              <div className="flex-1 overflow-y-auto space-y-4 pr-1 rounded-2xl bg-zinc-950/20 border border-white/[0.03] p-4.5 min-h-[200px]">
+              {/* Chat Conversation Stream */}
+              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 scroll-smooth">
                 {agentLog.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-zinc-655 font-mono text-xs p-6 space-y-3">
-                    <Robot size={32} className="text-zinc-850" />
-                    <span>Ask the AI Gmail Agent to summarize, draft, check importance, or clean spam.</span>
+                  <div className="flex flex-col items-center justify-center h-full text-center space-y-2 py-12">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-white/[0.06] flex items-center justify-center text-amber-400">
+                      <Sparkle size={18} weight="fill" />
+                    </div>
+                    <h3 className="text-sm font-medium text-zinc-200">How can I assist with your emails?</h3>
+                    <p className="text-xs text-zinc-500 max-w-xs leading-relaxed font-sans">
+                      Ask me to summarize unread messages, draft quick replies, filter priority threads, or clean up spam.
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {agentLog.map((log, i) => (
-                      <div key={i} className={`rounded-2xl border p-4 space-y-2.5 transition-all ${
-                        log.role === "user" 
-                          ? "border-amber-500/20 bg-amber-500/[0.04] text-zinc-200"
-                          : "border-white/[0.08] bg-zinc-900/60 backdrop-blur-md text-zinc-100 shadow-xl shadow-black/20"
-                      }`}>
-                        <div className="flex items-center justify-between text-[10px] font-mono font-bold tracking-wider text-zinc-400 uppercase">
-                          <div className="flex items-center gap-2">
-                            {log.role === "user" ? (
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-[10px]">You</span>
-                            ) : (
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 text-amber-300">
-                                <Robot size={12} weight="bold" />
-                              </span>
-                            )}
-                            <span className="text-zinc-300 font-semibold">{log.role === "user" ? "You" : "Gmail Co-Pilot"}</span>
+                      <div
+                        key={i}
+                        className={`flex flex-col ${log.role === "user" ? "items-end" : "items-start"}`}
+                      >
+                        <div
+                          className={`max-w-[88%] rounded-xl px-4 py-2.5 text-xs transition-all ${
+                            log.role === "user"
+                              ? "bg-zinc-800/90 border border-white/[0.08] text-zinc-100"
+                              : "bg-zinc-900/50 border border-white/[0.05] text-zinc-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-4 text-[9px] font-mono text-zinc-500 mb-1">
+                            <span className={log.role === "user" ? "text-amber-400 font-semibold" : "text-zinc-400 font-semibold"}>
+                              {log.role === "user" ? "You" : "Co-Pilot"}
+                            </span>
+                            <span>{log.time}</span>
                           </div>
-                          <span className="text-[9px] text-zinc-500">{log.time}</span>
-                        </div>
-                        <div className="text-xs leading-relaxed">
                           {log.role === "user" ? (
-                            <span className="font-sans text-zinc-200">{log.text}</span>
+                            <p className="font-sans text-zinc-100">{log.text}</p>
                           ) : (
                             <FormattedMessageText text={log.text} />
                           )}
@@ -852,88 +865,85 @@ export default function GmailPage() {
                       </div>
                     ))}
                     {agentLoading && (
-                      <div className="flex items-center gap-2 text-xs font-mono text-zinc-555 p-2">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
-                        </span>
-                        Thinking...
+                      <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 py-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                        Analyzing inbox...
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Quick Access Grid */}
-              <div className="space-y-3">
-                <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-500">Quick Access Actions</h3>
-                <div className="grid grid-cols-2 gap-3.5">
-                  {/* Summarize Last 5 Mails */}
+              {/* Minimal Quick Action Chips */}
+              <div className="pt-2 border-t border-white/[0.04] space-y-2.5">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
                   <button
                     onClick={() => { void handleSummarizeLast5(); }}
                     disabled={agentLoading}
-                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-zinc-900/50 hover:bg-zinc-800 px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-all shrink-0 cursor-pointer disabled:opacity-40"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
-                      <Sparkle size={14} weight="fill" />
-                    </div>
-                    <h4 className="text-xs font-bold text-zinc-200">Summarize Last 5 Mails</h4>
+                    <Sparkle size={12} className="text-amber-400" />
+                    <span>Summarize 5 Mails</span>
                   </button>
 
-                  {/* Show Important Emails */}
                   <button
                     onClick={handleShowImportant}
                     disabled={agentLoading}
-                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-zinc-900/50 hover:bg-zinc-800 px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-all shrink-0 cursor-pointer disabled:opacity-40"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
-                      <Star size={14} weight="fill" />
-                    </div>
-                    <h4 className="text-xs font-bold text-zinc-200">Show Important Emails</h4>
+                    <Star size={12} className="text-emerald-400" />
+                    <span>Priority Emails</span>
                   </button>
 
-                  {/* Draft/Send Mail */}
                   <button
                     onClick={() => {
                       setComposeDefaults({ to: "", subject: "Regarding our sync", body: "" });
                       setComposeOpen(true);
                     }}
                     disabled={agentLoading}
-                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-amber-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-zinc-900/50 hover:bg-zinc-800 px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-all shrink-0 cursor-pointer disabled:opacity-40"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
-                      <EnvelopeSimple size={14} weight="fill" />
-                    </div>
-                    <h4 className="text-xs font-bold text-zinc-200">Draft/Send Mail</h4>
+                    <EnvelopeSimple size={12} className="text-blue-400" />
+                    <span>Draft Email</span>
                   </button>
 
-                  {/* Clean Spam/Trash */}
                   <button
                     onClick={() => { void handleCleanSpam(); }}
                     disabled={agentLoading}
-                    className="flex items-center gap-3.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-left hover:bg-white/[0.04] hover:border-red-500/25 transition-all cursor-pointer disabled:opacity-50 group"
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-zinc-900/50 hover:bg-zinc-800 px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-all shrink-0 cursor-pointer disabled:opacity-40"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 transition-colors shrink-0">
-                      <Trash size={14} weight="fill" />
-                    </div>
-                    <h4 className="text-xs font-bold text-zinc-200">Delete Spam &amp; Cleanup</h4>
+                    <Trash size={12} className="text-red-400" />
+                    <span>Clean Spam</span>
                   </button>
                 </div>
-              </div>
 
-              {/* Prompt Input Area */}
-              <PlaceholdersAndVanishInput
-                placeholders={[
-                  "Draft reply to John telling him I'm on it…",
-                  "Summarize my latest emails from today…",
-                  "Draft an email to sales@acme.com with pricing update…",
-                  "Find emails marked as urgent…",
-                ]}
-                value={agentInput}
-                onValueChange={setAgentInput}
-                onSubmit={(val) => { void handleAgentQuery(val); }}
-                disabled={agentLoading}
-              />
+                {/* Minimal Input Bar */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (agentInput.trim()) {
+                      void handleAgentQuery(agentInput);
+                    }
+                  }}
+                  className="relative flex items-center rounded-lg border border-white/[0.08] bg-zinc-900/80 px-3 py-2 focus-within:border-amber-500/40 transition-all"
+                >
+                  <input
+                    type="text"
+                    placeholder="Ask Gmail Co-Pilot (e.g. Draft reply to John)..."
+                    value={agentInput}
+                    onChange={(e) => setAgentInput(e.target.value)}
+                    disabled={agentLoading}
+                    className="w-full bg-transparent text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none font-sans px-1"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!agentInput.trim() || agentLoading}
+                    className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-500 text-zinc-950 disabled:opacity-20 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all shrink-0 cursor-pointer"
+                  >
+                    <PaperPlaneTilt size={12} weight="fill" />
+                  </button>
+                </form>
+              </div>
             </div>
           ) : !selectedMessage ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-zinc-600 font-mono text-xs">

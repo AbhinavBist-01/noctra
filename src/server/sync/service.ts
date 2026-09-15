@@ -18,13 +18,14 @@ const initializedUsers = new Set<string>();
  * Ensures DEKs and OAuth tokens are provisioned for a given user.
  * Runs idempotently once per process per userId on demand.
  */
-export async function ensureUserSync(userId: string): Promise<void> {
-  if (initializedUsers.has(userId)) return;
+export async function ensureUserSync(userId: string, force = false): Promise<void> {
+  if (!force && initializedUsers.has(userId)) return;
 
   try {
     await setupUserSync(userId);
     initializedUsers.add(userId);
   } catch (err) {
+    initializedUsers.delete(userId);
     const msg = err instanceof Error ? err.message : String(err);
     console.log(`[corsair] Auto DEK sync for user ${userId}: ${msg}`);
   }

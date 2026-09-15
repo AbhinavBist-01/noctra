@@ -73,6 +73,10 @@ const makeKeyBuilder = (name: string) => {
         } else {
           const errBody = await res.text();
           console.warn(`[corsair:${name}] Google OAuth refresh failed (${res.status}): ${errBody}`);
+          if (errBody.includes("invalid_grant")) {
+            console.warn(`[corsair:${name}] Stored refresh token was revoked/expired by Google. Re-authentication required.`);
+            await ctx.keys.set_access_token("");
+          }
         }
       } catch (err) {
         console.warn(`[corsair:${name}] Google OAuth refresh error: ${err}`);
