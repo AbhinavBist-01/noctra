@@ -116,6 +116,16 @@ export async function refreshGoogleAccessToken(
         console.warn(
           `[refreshGoogleAccessToken] Stored refresh token was revoked or expired by Google for user ${userId}. Re-authentication required.`,
         );
+        try {
+          await db
+            .update(account)
+            .set({
+              accessToken: null,
+              refreshToken: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(account.id, googleAccount.id));
+        } catch { /* ignore db update errors */ }
         return null;
       }
     }
@@ -155,7 +165,7 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
     );
   }
 
-  const tokenToUse = activeToken || googleAccount.accessToken;
+  const tokenToUse = activeToken;
   if (!tokenToUse) {
     console.warn(
       `[corsair] User ${userId} Google token is revoked or expired. Skipping sync until user re-authenticates.`,

@@ -39,6 +39,7 @@ app.listen(PORT, async () => {
 
     if (googleAccounts.length > 0) {
       for (const acc of googleAccounts) {
+        if (!acc.accessToken && !acc.refreshToken) continue;
         console.log(`[corsair] Initializing DEKs for user ${acc.userId}...`);
         await setupUserSync(acc.userId);
       }
@@ -62,12 +63,18 @@ app.listen(PORT, async () => {
         .where(eq(account.providerId, "google"));
 
       for (const acc of googleAccounts) {
+        if (!acc.accessToken && !acc.refreshToken) continue;
         try {
           await refreshGmailMessages(acc.userId);
           await refreshCalendarEvents(acc.userId);
         } catch (accErr: unknown) {
           const msg = accErr instanceof Error ? accErr.message : String(accErr);
-          if (!msg.includes("No DEK found") && !msg.includes("invalid_grant")) {
+          if (
+            !msg.includes("No DEK found") &&
+            !msg.includes("invalid_grant") &&
+            !msg.includes("Unauthorized") &&
+            !msg.includes("401")
+          ) {
             console.warn(`[Auto-Sync] Warning for user ${acc.userId}: ${msg}`);
           }
         }
