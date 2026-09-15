@@ -15,7 +15,14 @@ const tenantCache = new Map<string, ReturnType<typeof corsair.withTenant>>();
  * making any API calls through this client. Call setupUserSync on sign-in.
  */
 export const getTenant = (userId?: string) => {
-  const tenantId = userId ?? process.env.CORSAIR_TENANT_ID ?? "dev";
+  const tenantId =
+    userId ??
+    process.env.CORSAIR_TENANT_ID ??
+    (() => {
+      throw new Error(
+        "No tenantId provided and CORSAIR_TENANT_ID env var not set",
+      );
+    })();
   const cached = tenantCache.get(tenantId);
   if (cached) return cached;
   const client = corsair.withTenant(tenantId);

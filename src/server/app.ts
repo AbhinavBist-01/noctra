@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import { healthRoute } from "./health/health.route";
 import { gmailRoute } from "./gmail/route";
 import { calendarRoute } from "./calendar/route";
 import { commandRoute } from "./command/route";
@@ -40,7 +39,6 @@ app.use("/api/auth", browserCors, (req, res, next) => {
   authRoute(req, res, next);
 });
 
-app.use("/api/health", browserCors, healthRoute);
 app.use("/api/telemetry", browserCors, telemetryRoute);
 app.use("/api/gmail", browserCors, requireAuth, gmailRoute);
 app.use("/api/calendar", browserCors, requireAuth, calendarRoute);

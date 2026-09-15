@@ -1,8 +1,10 @@
 import { spawn, execSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getTenant } from "../corsair/tenant";
+import { db } from "../db";
+import { account } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { refreshGoogleAccessToken } from "../sync/service";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,11 +12,58 @@ const __dirname = dirname(__filename);
 let tunnelUrl: string | null = null;
 let ngrokProcess: ReturnType<typeof spawn> | null = null;
 
+// Track active watches to prevent redundant watch calls
+const activeWatches = new Map<
+  string,
+  {
+    gmailExpiration?: string;
+    calendarChannelId?: string;
+    calendarResourceId?: string;
+    registeredAt: number;
+  }
+>();
+
 function findNgrokBinary(): string {
   const candidates = [
-    join(__dirname, "..", "..", "..", "node_modules", ".pnpm", "ngrok@5.0.0-beta.2", "node_modules", "ngrok", "bin", "ngrok.exe"),
-    join(__dirname, "..", "..", "..", "node_modules", "ngrok", "bin", "ngrok.exe"),
-    join(process.env.APPDATA || "", "npm", "node_modules", "ngrok", "bin", "ngrok.exe"),
+    join(
+      process.env.APPDATA || "",
+      "npm",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.exe",
+    ),
+    join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "node_modules",
+      ".pnpm",
+      "ngrok@5.0.0-beta.2",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.exe",
+    ),
+    join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.exe",
+    ),
+    join(
+      process.env.APPDATA || "",
+      "npm",
+      "node_modules",
+      "ngrok",
+      "bin",
+      "ngrok.cmd",
+    ),
   ];
 
   for (const p of candidates) {
@@ -48,10 +97,18 @@ export async function startNgrok(port = 4000): Promise<string> {
   const binary = findNgrokBinary();
   console.log(`[ngrok] Using binary: ${binary}`);
 
+  const authToken = process.env.NGROK_AUTH_TOKEN || process.env.NGROK_AUTHTOKEN;
+  const isCmdOrBatch = binary.endsWith(".cmd") || binary === "ngrok";
+
   return new Promise((resolve, reject) => {
     const proc = spawn(binary, ["http", String(port), "--log=stdout"], {
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        ...(authToken ? { NGROK_AUTHTOKEN: authToken } : {}),
+      },
+      shell: isCmdOrBatch,
     });
 
     let startupLog = "";
@@ -61,7 +118,7 @@ export async function startNgrok(port = 4000): Promise<string> {
       const msg = data.toString();
       startupLog += msg;
 
-      // v3 format: url=https://xxxx.ngrok-free.app
+      // v3 format: url=https://xxxx.ngrok-free.app or url=https://xxxx.ngrok-free.dev
       const urlMatch = /url=https:\/\/([^\s]+)/.exec(msg);
       if (urlMatch && !resolved) {
         tunnelUrl = `https://${urlMatch[1]}`;
@@ -80,8 +137,8 @@ export async function startNgrok(port = 4000): Promise<string> {
       }
     }
 
-    proc.stdout.on("data", onData);
-    proc.stderr.on("data", onData);
+    proc.stdout?.on("data", onData);
+    proc.stderr?.on("data", onData);
 
     proc.on("error", (err) => {
       if (!resolved) reject(err);
@@ -90,15 +147,21 @@ export async function startNgrok(port = 4000): Promise<string> {
     proc.on("exit", (code) => {
       ngrokProcess = null;
       if (!resolved && code !== 0) {
-        reject(new Error(`ngrok exited with code ${code}: ${startupLog.slice(-300)}`));
+        reject(
+          new Error(
+            `ngrok exited with code ${code}: ${startupLog.slice(-300)}`,
+          ),
+        );
       }
     });
 
     ngrokProcess = proc;
 
     const pollInterval = setInterval(() => {
-      if (resolved) { clearInterval(pollInterval); return; }
-      // Check accumulated log for URL patterns
+      if (resolved) {
+        clearInterval(pollInterval);
+        return;
+      }
       const urlMatch = /url=https:\/\/([^\s]+)/.exec(startupLog);
       if (urlMatch && !resolved) {
         tunnelUrl = `https://${urlMatch[1]}`;
@@ -142,22 +205,93 @@ export function getNgrokUrl(): string | null {
 
 // --- Gmail Watch ---
 
-export async function setupGmailWatch(topicName: string): Promise<void> {
-  console.log(`[gmail-watch] Skipping watch registration (topic: ${topicName}). Webhook watches are managed externally.`);
+/**
+ * Registers a push notification watch on the user's Gmail inbox.
+ * Tells Google to send change events to the specified Cloud Pub/Sub topic.
+ */
+export async function setupGmailWatch(
+  accessToken: string,
+  topicName: string,
+): Promise<{ historyId: string; expiration: string }> {
+  const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      topicName,
+      labelIds: ["INBOX"],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gmail watch registration failed (${res.status}): ${errText}`);
+  }
+
+  const data = (await res.json()) as { historyId: string; expiration: string };
+  console.log(
+    `[gmail-watch] Active for topic ${topicName}! HistoryId: ${data.historyId}, expires: ${new Date(Number(data.expiration)).toISOString()}`,
+  );
+  return data;
 }
 
-export async function stopGmailWatch(): Promise<void> {
-  console.log("[gmail-watch] Stopping watch (skipped)");
+export async function stopGmailWatch(accessToken: string): Promise<void> {
+  try {
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/stop", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (res.ok) {
+      console.log("[gmail-watch] Successfully stopped Gmail watch");
+    }
+  } catch (err) {
+    console.warn("[gmail-watch] Error stopping watch:", err);
+  }
 }
 
 // --- Calendar Watch ---
 
-export async function setupCalendarWatch(): Promise<void> {
-  console.log("[calendar-watch] Skipping watch registration. Webhook watches are managed externally.");
-}
+/**
+ * Registers a push notification watch on the user's Primary Google Calendar.
+ * Tells Google to send POST requests to our public webhook address when calendar events change.
+ */
+export async function setupCalendarWatch(
+  accessToken: string,
+  tunnelBaseUrl: string,
+): Promise<{ id: string; resourceId: string; expiration: string }> {
+  const channelId = crypto.randomUUID();
+  const webhookUrl = `${tunnelBaseUrl}/api/webhooks/calendar`;
 
-export async function stopCalendarWatch(): Promise<void> {
-  console.log("[calendar-watch] Stopping calendar watch (skipped)");
+  const res = await fetch(
+    "https://www.googleapis.com/calendar/v3/calendars/primary/events/watch",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: channelId,
+        type: "web_hook",
+        address: webhookUrl,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Calendar watch registration failed (${res.status}): ${errText}`);
+  }
+
+  const data = (await res.json()) as { id: string; resourceId: string; expiration: string };
+  console.log(
+    `[calendar-watch] Active on ${webhookUrl}! Channel: ${data.id}, Resource: ${data.resourceId}`,
+  );
+  return data;
 }
 
 // --- Combined setup ---
@@ -167,31 +301,89 @@ export type WatchResult = {
   calendar: boolean;
 };
 
-export async function setupWatches(): Promise<WatchResult> {
-  if (!tunnelUrl) throw new Error("ngrok tunnel not running");
+/**
+ * Ensures watches (Gmail + Calendar) are registered for a given user or all users in the DB.
+ * Automatically refreshes the user's access token before calling Google's API to ensure no 401s.
+ */
+export async function setupWatches(userId?: string): Promise<WatchResult> {
+  if (!tunnelUrl) {
+    console.log("[webhooks] ngrok tunnel not open, skipping watch setup");
+    return { gmail: false, calendar: false };
+  }
 
-  const result: WatchResult = { gmail: false, calendar: false };
+  // Find target accounts
+  const query = db
+    .select()
+    .from(account)
+    .where(eq(account.providerId, "google"));
 
+  const googleAccounts = await query;
+  const accountsToWatch = userId
+    ? googleAccounts.filter((a) => a.userId === userId)
+    : googleAccounts;
+
+  if (accountsToWatch.length === 0) {
+    console.log("[webhooks] No Google accounts available to register watches for");
+    return { gmail: false, calendar: false };
+  }
+
+  let anyGmailSuccess = false;
+  let anyCalendarSuccess = false;
   const topicName = process.env.GMAIL_PUBSUB_TOPIC;
-  if (topicName) {
+
+  for (const acc of accountsToWatch) {
     try {
-      await setupGmailWatch(topicName);
-      result.gmail = true;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[gmail-watch] Failed: ${msg}`);
+      // 1. Ensure access token is valid and fresh
+      const token = await refreshGoogleAccessToken(acc.userId);
+      if (!token) {
+        console.warn(`[webhooks] No valid access token for user ${acc.userId}, skipping`);
+        continue;
+      }
+
+      // Check if user was registered recently (within 10 minutes)
+      const existing = activeWatches.get(acc.userId);
+      const isRecent = existing && Date.now() - existing.registeredAt < 600000;
+
+      // 2. Gmail Watch
+      if (topicName) {
+        try {
+          const gmailResult = await setupGmailWatch(token, topicName);
+          anyGmailSuccess = true;
+          activeWatches.set(acc.userId, {
+            ...activeWatches.get(acc.userId),
+            gmailExpiration: gmailResult.expiration,
+            registeredAt: Date.now(),
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[gmail-watch] Failed for user ${acc.userId}: ${msg}`);
+        }
+      } else {
+        console.log("[webhooks] Set GMAIL_PUBSUB_TOPIC in .env to enable Gmail Watch");
+      }
+
+      // 3. Calendar Watch
+      if (!isRecent || !existing?.calendarChannelId) {
+        try {
+          const calResult = await setupCalendarWatch(token, tunnelUrl);
+          anyCalendarSuccess = true;
+          activeWatches.set(acc.userId, {
+            ...activeWatches.get(acc.userId),
+            calendarChannelId: calResult.id,
+            calendarResourceId: calResult.resourceId,
+            registeredAt: Date.now(),
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[calendar-watch] Failed for user ${acc.userId}: ${msg}`);
+        }
+      } else {
+        anyCalendarSuccess = true;
+      }
+    } catch (err) {
+      console.error(`[webhooks] Error processing watches for user ${acc.userId}:`, err);
     }
-  } else {
-    console.log("[webhooks] Set GMAIL_PUBSUB_TOPIC to enable Gmail Watch");
   }
 
-  try {
-    await setupCalendarWatch();
-    result.calendar = true;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[calendar-watch] Failed: ${msg}`);
-  }
-
-  return result;
+  return { gmail: anyGmailSuccess, calendar: anyCalendarSuccess };
 }

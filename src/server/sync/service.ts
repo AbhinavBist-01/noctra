@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { corsair } from "../corsair";
 import { setupCorsair } from "corsair/setup";
 import { AppError } from "../lib/app-error";
+import { clearTenantCache } from "../corsair/tenant";
 
 export type SyncResult = {
   gmail: boolean;
@@ -32,14 +33,107 @@ export async function ensureUserSync(userId: string, force = false): Promise<voi
 }
 
 /**
+ * Refreshes the user's Google OAuth access token using their stored refresh token.
+ * Updates the database account row with the new access token and expiration.
+ */
+export async function refreshGoogleAccessToken(
+  userId: string,
+  force = false,
+): Promise<string | null> {
+  const googleAccount = await db
+    .select()
+    .from(account)
+    .where(and(eq(account.userId, userId), eq(account.providerId, "google")))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+
+  if (!googleAccount) return null;
+
+  const expiresAt = googleAccount.accessTokenExpiresAt
+    ? new Date(googleAccount.accessTokenExpiresAt).getTime()
+    : 0;
+  const isExpiringSoon = expiresAt > 0 ? Date.now() >= expiresAt - 300000 : true;
+
+  if (!force && !isExpiringSoon && googleAccount.accessToken) {
+    return googleAccount.accessToken;
+  }
+
+  if (!googleAccount.refreshToken) {
+    return googleAccount.accessToken ?? null;
+  }
+
+  const clientId =
+    process.env.BETTER_AUTH_GOOGLE_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID;
+  const clientSecret =
+    process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET ||
+    process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    console.warn("[refreshGoogleAccessToken] Google OAuth client credentials missing in env");
+    return googleAccount.accessToken ?? null;
+  }
+
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: googleAccount.refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as {
+        access_token: string;
+        expires_in?: number;
+        scope?: string;
+      };
+      const newAccessToken = data.access_token;
+      const newExpiresAt = data.expires_in
+        ? new Date(Date.now() + data.expires_in * 1000)
+        : new Date(Date.now() + 3600 * 1000);
+
+      await db
+        .update(account)
+        .set({
+          accessToken: newAccessToken,
+          accessTokenExpiresAt: newExpiresAt,
+          ...(data.scope ? { scope: data.scope } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(account.id, googleAccount.id));
+
+      console.log(`[corsair] Fresh Google access token obtained for user ${userId}`);
+      return newAccessToken;
+    } else {
+      const errText = await res.text();
+      console.warn(`[refreshGoogleAccessToken] Token refresh failed (${res.status}): ${errText}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[refreshGoogleAccessToken] Error: ${msg}`);
+  }
+
+  return googleAccount.accessToken ?? null;
+}
+
+/**
  * Called immediately after a user signs in with Google (or lazily on first request).
  * Uses Corsair's official `setupCorsair` API to:
- *  1. Create corsair_integrations + corsair_accounts rows (idempotent)
- *  2. Issue DEKs for the tenant (idempotent)
- *  3. Write the current OAuth tokens from Better Auth's account row
+ *  1. Ensure a fresh access token exists
+ *  2. Create corsair_integrations + corsair_accounts rows (idempotent)
+ *  3. Issue DEKs for the tenant (idempotent)
+ *  4. Write the current OAuth tokens into Corsair's encrypted store
  */
 export async function setupUserSync(userId: string): Promise<SyncResult> {
-  // 1. Fetch the Google account row that Better Auth manages
+  // 1. Ensure access token is fresh
+  const activeToken = await refreshGoogleAccessToken(userId);
+
+  // Fetch the Google account row that Better Auth manages
   const googleAccount = await db
     .select()
     .from(account)
@@ -54,7 +148,8 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
     );
   }
 
-  if (!googleAccount.accessToken) {
+  const tokenToUse = activeToken || googleAccount.accessToken;
+  if (!tokenToUse) {
     throw new AppError("VALIDATION_ERROR", "Google access token not found.");
   }
 
@@ -71,7 +166,7 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
         : tenantClient.googlecalendar;
 
     try {
-      await plugin.keys.set_access_token(googleAccount.accessToken);
+      await plugin.keys.set_access_token(tokenToUse);
       if (googleAccount.refreshToken) {
         await plugin.keys.set_refresh_token(googleAccount.refreshToken);
       }
@@ -88,6 +183,8 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
       console.warn(`[corsair] Failed to set keys for ${pluginName}: ${msg}`);
     }
   }
+
+  clearTenantCache();
 
   // Mark user as initialized
   initializedUsers.add(userId);
