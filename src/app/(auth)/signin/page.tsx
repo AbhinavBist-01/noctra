@@ -71,12 +71,18 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error: err } = await authClient.signIn.email({ email, password });
+
+    const { error: err } = await authClient.signIn.email({
+      email,
+      password,
+    });
+
     setLoading(false);
 
     if (err) {
@@ -87,10 +93,16 @@ export default function SignInPage() {
   };
 
   const handleGoogleAuth = async () => {
-    await authClient.signIn.social({
-      provider: "google",
-      callbackURL: `${window.location.origin}/dashboard`,
-    });
+    if (googleLoading || loading) return;
+    setGoogleLoading(true);
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: `${window.location.origin}/dashboard`,
+      });
+    } catch {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -108,7 +120,10 @@ export default function SignInPage() {
       {/* Social Google Auth */}
       <button
         onClick={handleGoogleAuth}
-        className="w-full flex items-center justify-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-3 text-xs font-mono font-bold text-zinc-300 transition-all duration-300 hover:scale-[1.01]"
+        disabled={googleLoading || loading}
+        className={`w-full flex items-center justify-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-xs font-mono font-bold text-zinc-300 transition-all duration-300 ${
+          googleLoading ? "opacity-60 cursor-not-allowed" : "hover:bg-white/[0.06] hover:scale-[1.01]"
+        }`}
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24">
           <path

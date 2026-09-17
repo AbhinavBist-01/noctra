@@ -44,8 +44,7 @@ authRoute.post("/corsair-init", async (req, res) => {
     }
 
     // Refresh access token and sync with Corsair DEKs
-    await refreshGoogleAccessToken(userId, true);
-    const syncResult = await setupUserSync(userId);
+    const syncResult = await setupUserSync(userId, true);
 
     // Register webhooks automatically if ngrok tunnel is open
     let watchResult = { gmail: false, calendar: false };
@@ -93,7 +92,7 @@ authRoute.post("/token/refresh", async (req, res) => {
       return;
     }
 
-    await setupUserSync(session.user.id);
+    await setupUserSync(session.user.id, true);
     await setupWatches(session.user.id).catch(() => {});
 
     res.status(200).json({ data: { success: true } });
@@ -104,59 +103,8 @@ authRoute.post("/token/refresh", async (req, res) => {
 });
 
 /**
- * GET /callback/google
- *
- * Specific interceptor for Google OAuth callback to ensure fresh token,
- * DEK sync, and automatic webhook registration immediately upon login
- * without requiring any user click.
+ * Catch-all for all Better Auth endpoints (sign-in, callback, session, etc.)
  */
-authRoute.get("/callback/google", async (req, res, next) => {
-  res.on("finish", async () => {
-    if (res.statusCode < 400) {
-      try {
-        console.log("[authRoute] Google OAuth callback finished, running automatic token sync & webhook setup...");
-        
-        // Find the latest active Google account
-        const googleAccounts = await db
-          .select()
-          .from(account)
-          .where(eq(account.providerId, "google"));
-
-        if (googleAccounts.length > 0) {
-          // Sort by latest updated
-          googleAccounts.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
-          const latest = googleAccounts[0]!;
-          
-          console.log(`[authRoute] Auto-syncing fresh tokens and watches for user ${latest.userId}...`);
-          await refreshGoogleAccessToken(latest.userId, false);
-          await setupUserSync(latest.userId);
-          
-          await setupWatches(latest.userId).catch((err) => {
-            console.warn("[authRoute] Auto watch registration notice:", err instanceof Error ? err.message : err);
-          });
-        }
-      } catch (err) {
-        console.error("[authRoute] Post-callback auto-sync error:", err);
-      }
-    }
-  });
-
-  try {
-    await authHandler(req, res);
-  } catch (error) {
-    console.error("[BetterAuth Internal Error]", error);
-    next(error);
-  }
-});
-
-/**
- * Catch-all for Better Auth internal endpoints
- */
-authRoute.use(async (req, res, next) => {
-  try {
-    await authHandler(req, res);
-  } catch (error) {
-    console.error("[BetterAuth Internal Error]", error);
-    next(error);
-  }
+authRoute.all("/*", (req, res) => {
+  authHandler(req, res);
 });

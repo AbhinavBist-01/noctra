@@ -94,32 +94,35 @@ async function handleGmailNotification(historyId: string) {
     .then((rows) => rows[0] ?? null);
 
   const userId = googleAccount?.userId;
-  const tenant = getTenant(userId);
+  const { withTokenRetry } = await import("../sync/service");
+
   console.log(`[WEBHOOK] Fetching messages after historyId ${historyId}`);
   try {
-    const listRes = await tenant.gmail.api.messages.list({ maxResults: 20 });
-    const items = (listRes && typeof listRes === "object" && "messages" in listRes) ? (listRes.messages ?? []) : [];
-    let fetched = 0;
-    for (const item of items) {
-      if (item?.id) {
-        try {
-          const res = await tenant.gmail.api.messages.get({ id: item.id });
-          const data = (res && typeof res === "object" && "data" in res && res.data)
-            ? res.data
-            : res;
-          if (data) {
-            const upsertData = {
-              ...(data as any),
-              id: item.id,
-            };
-            await tenant.gmail.db.messages.upsertByEntityId(item.id, upsertData);
-          }
-          fetched++;
-        } catch { /* skip individual failures */ }
+    return await withTokenRetry(userId, async (tenant) => {
+      const listRes = await tenant.gmail.api.messages.list({ maxResults: 20 });
+      const items = (listRes && typeof listRes === "object" && "messages" in listRes) ? (listRes.messages ?? []) : [];
+      let fetched = 0;
+      for (const item of items) {
+        if (item?.id) {
+          try {
+            const res = await tenant.gmail.api.messages.get({ id: item.id });
+            const data = (res && typeof res === "object" && "data" in res && res.data)
+              ? res.data
+              : res;
+            if (data) {
+              const upsertData = {
+                ...(data as any),
+                id: item.id,
+              };
+              await tenant.gmail.db.messages.upsertByEntityId(item.id, upsertData);
+            }
+            fetched++;
+          } catch { /* skip individual failures */ }
+        }
       }
-    }
-    console.log(`[WEBHOOK] Fetched and cached ${fetched} messages`);
-    return fetched;
+      console.log(`[WEBHOOK] Fetched and cached ${fetched} messages`);
+      return fetched;
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[WEBHOOK] Failed to fetch messages:`, message);
