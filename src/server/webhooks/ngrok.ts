@@ -230,6 +230,8 @@ export async function setupGmailWatch(
     throw new Error(`Gmail watch registration failed (${res.status}): ${errText}`);
   }
 
+  const data = (await res.json()) as { historyId: string; expiration: string };
+
   try {
     const { corsair } = await import("../corsair");
     await (corsair.keys.gmail as any).set_topic_id?.(topicName);
@@ -337,7 +339,7 @@ export async function setupWatches(userId?: string): Promise<WatchResult> {
   for (const acc of accountsToWatch) {
     try {
       // 1. Ensure access token is valid and fresh
-      const token = await refreshGoogleAccessToken(acc.userId);
+      let token = await refreshGoogleAccessToken(acc.userId);
       if (!token) {
         console.warn(`[webhooks] No valid access token for user ${acc.userId}, skipping`);
         continue;
@@ -359,7 +361,25 @@ export async function setupWatches(userId?: string): Promise<WatchResult> {
           });
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[gmail-watch] Failed for user ${acc.userId}: ${msg}`);
+          if (msg.includes("401") || msg.includes("Unauthorized")) {
+            const refreshed = await refreshGoogleAccessToken(acc.userId, true);
+            if (refreshed) {
+              token = refreshed;
+              try {
+                const retryResult = await setupGmailWatch(token, topicName);
+                anyGmailSuccess = true;
+                activeWatches.set(acc.userId, {
+                  ...activeWatches.get(acc.userId),
+                  gmailExpiration: retryResult.expiration,
+                  registeredAt: Date.now(),
+                });
+              } catch (retryErr) {
+                console.error(`[gmail-watch] Retry failed for user ${acc.userId}:`, retryErr);
+              }
+            }
+          } else {
+            console.error(`[gmail-watch] Failed for user ${acc.userId}: ${msg}`);
+          }
         }
       } else {
         console.log("[webhooks] Set GMAIL_PUBSUB_TOPIC in .env to enable Gmail Watch");
@@ -378,7 +398,26 @@ export async function setupWatches(userId?: string): Promise<WatchResult> {
           });
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[calendar-watch] Failed for user ${acc.userId}: ${msg}`);
+          if (msg.includes("401") || msg.includes("Unauthorized")) {
+            const refreshed = await refreshGoogleAccessToken(acc.userId, true);
+            if (refreshed) {
+              token = refreshed;
+              try {
+                const retryCal = await setupCalendarWatch(token, tunnelUrl);
+                anyCalendarSuccess = true;
+                activeWatches.set(acc.userId, {
+                  ...activeWatches.get(acc.userId),
+                  calendarChannelId: retryCal.id,
+                  calendarResourceId: retryCal.resourceId,
+                  registeredAt: Date.now(),
+                });
+              } catch (retryCalErr) {
+                console.error(`[calendar-watch] Retry failed for user ${acc.userId}:`, retryCalErr);
+              }
+            }
+          } else {
+            console.error(`[calendar-watch] Failed for user ${acc.userId}: ${msg}`);
+          }
         }
       } else {
         anyCalendarSuccess = true;

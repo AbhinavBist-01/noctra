@@ -19,7 +19,7 @@ commandRoute.post("/preview", async (req, res, next) => {
 commandRoute.post("/execute", async (req, res, next) => {
   try {
     const body = validate(ExecuteRequestSchema, req.body) as CommandExecuteRequest;
-    const result = await executeCommand(body);
+    const result = await executeCommand(body, req.session?.user.id);
     res.status(200).json({ data: result });
   } catch (error) {
     next(error);

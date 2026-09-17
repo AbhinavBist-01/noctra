@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { corsair } from "../corsair";
 import { setupCorsair } from "corsair/setup";
 import { AppError } from "../lib/app-error";
-import { clearTenantCache } from "../corsair/tenant";
+import { getTenant, clearTenantCache } from "../corsair/tenant";
 
 export type SyncResult = {
   gmail: boolean;
@@ -17,13 +17,18 @@ const initializedUsers = new Set<string>();
 
 /**
  * Ensures DEKs and OAuth tokens are provisioned for a given user.
- * Runs idempotently once per process per userId on demand.
+ * Proactively refreshes near-expired tokens on every call.
  */
 export async function ensureUserSync(userId: string, force = false): Promise<void> {
-  if (!force && initializedUsers.has(userId)) return;
+  const isInit = initializedUsers.has(userId);
+  if (!force && isInit) {
+    // Proactively refresh if token is within 5 mins of expiring
+    await refreshGoogleAccessToken(userId, false).catch(() => {});
+    return;
+  }
 
   try {
-    await setupUserSync(userId);
+    await setupUserSync(userId, force);
     initializedUsers.add(userId);
   } catch (err) {
     initializedUsers.delete(userId);
@@ -34,7 +39,7 @@ export async function ensureUserSync(userId: string, force = false): Promise<voi
 
 /**
  * Refreshes the user's Google OAuth access token using their stored refresh token.
- * Updates the database account row with the new access token and expiration.
+ * Updates the database account row AND Corsair's tenant keys with the new token.
  */
 export async function refreshGoogleAccessToken(
   userId: string,
@@ -97,6 +102,7 @@ export async function refreshGoogleAccessToken(
         ? new Date(Date.now() + data.expires_in * 1000)
         : new Date(Date.now() + 3600 * 1000);
 
+      // 1. Update PostgreSQL account table
       await db
         .update(account)
         .set({
@@ -107,7 +113,21 @@ export async function refreshGoogleAccessToken(
         })
         .where(eq(account.id, googleAccount.id));
 
-      console.log(`[corsair] Fresh Google access token obtained for user ${userId}`);
+      // 2. Synchronize directly into Corsair tenant store
+      try {
+        const tenantClient = corsair.withTenant(userId);
+        await Promise.all([
+          tenantClient.gmail.keys.set_access_token(newAccessToken),
+          tenantClient.gmail.keys.set_expires_at(newExpiresAt.toISOString()),
+          tenantClient.googlecalendar.keys.set_access_token(newAccessToken),
+          tenantClient.googlecalendar.keys.set_expires_at(newExpiresAt.toISOString()),
+        ]);
+      } catch {
+        /* If DEKs not yet provisioned, setupUserSync will set them */
+      }
+
+      clearTenantCache();
+      console.log(`[corsair] Fresh Google access token obtained and synced for user ${userId}`);
       return newAccessToken;
     } else {
       const errText = await res.text();
@@ -134,21 +154,21 @@ export async function refreshGoogleAccessToken(
     console.error(`[refreshGoogleAccessToken] Error: ${msg}`);
   }
 
-  if (isExpiringSoon) return null;
+  if (isExpiringSoon && force) return null;
   return googleAccount.accessToken ?? null;
 }
 
 /**
  * Called immediately after a user signs in with Google (or lazily on first request).
  * Uses Corsair's official `setupCorsair` API to:
- *  1. Ensure a fresh access token exists
+ *  1. Ensure a fresh access token exists (force refresh if requested)
  *  2. Create corsair_integrations + corsair_accounts rows (idempotent)
  *  3. Issue DEKs for the tenant (idempotent)
  *  4. Write the current OAuth tokens into Corsair's encrypted store
  */
-export async function setupUserSync(userId: string): Promise<SyncResult> {
+export async function setupUserSync(userId: string, force = false): Promise<SyncResult> {
   // 1. Ensure access token is fresh
-  const activeToken = await refreshGoogleAccessToken(userId);
+  const activeToken = await refreshGoogleAccessToken(userId, force);
 
   // Fetch the Google account row that Better Auth manages
   const googleAccount = await db
@@ -174,7 +194,6 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
   }
 
   // 2. Provision rows + DEKs via the official Corsair API (idempotent)
-  //    tenantId = userId so every user gets their own encrypted credential slot
   await setupCorsair(corsair as any, { tenantId: userId });
   const tenantClient = corsair.withTenant(userId);
 
@@ -234,3 +253,40 @@ export async function setupUserSync(userId: string): Promise<SyncResult> {
 
   return { gmail, calendar };
 }
+
+/**
+ * Universal wrapper for any Google API operation (Gmail or Calendar).
+ * If the operation fails with 401 / Unauthorized, it automatically force-refreshes
+ * the user's OAuth access token with Google, re-provisions Corsair keys, and retries the operation.
+ */
+export async function withTokenRetry<T>(
+  userId: string | undefined,
+  operation: (tenant: ReturnType<typeof getTenant>) => Promise<T>,
+): Promise<T> {
+  const tenant = getTenant(userId);
+  try {
+    return await operation(tenant);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const isAuthError =
+      msg.includes("Unauthorized") ||
+      msg.includes("401") ||
+      msg.includes("invalid_grant") ||
+      msg.includes("Invalid Credentials") ||
+      msg.includes("AuthMissingError") ||
+      msg.includes("needs credentials");
+
+    if (isAuthError && userId) {
+      console.warn(`[withTokenRetry] Auth/401 error for user ${userId} (${msg}). Force-refreshing token and retrying...`);
+      const refreshedToken = await refreshGoogleAccessToken(userId, true);
+      if (!refreshedToken) {
+        throw new AppError("VALIDATION_ERROR", "Google session expired or revoked. Please sign in again.");
+      }
+      await setupUserSync(userId, true);
+      const freshTenant = getTenant(userId);
+      return await operation(freshTenant);
+    }
+    throw err;
+  }
+}
+

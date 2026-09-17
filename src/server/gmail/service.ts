@@ -2,6 +2,7 @@ import { getTenant } from "../corsair/tenant";
 import { mapGmailMessageDetail, mapGmailMessageSummary, type RawGmailMessage } from "./mapper";
 import { AppError } from "../lib/app-error";
 import { telemetryService } from "../telemetry/service";
+import { withTokenRetry } from "../sync/service";
 import type {
   GmailDraftCreateParams,
   GmailDraftSendParams,
@@ -25,7 +26,7 @@ const fetchFullMessage = async (
   const id = partial.id ?? partial.entityId;
   if (!id) return partial;
   const data = partial.data ?? partial;
-  
+
   // If we already have payload headers or subject, return immediately
   if (data.payload?.headers || data.subject) return data;
 
@@ -35,7 +36,9 @@ const fetchFullMessage = async (
     const cachedRow = cached as unknown as { data?: RawGmailMessage } | null;
     const full = (cachedRow?.data ?? cached) as RawGmailMessage | undefined;
     if (full?.payload?.headers || full?.subject) return full;
-  } catch { /* not in cache */ }
+  } catch {
+    /* not in cache */
+  }
 
   // Otherwise fetch from Gmail API with a strict 4-second timeout
   try {
@@ -44,13 +47,15 @@ const fetchFullMessage = async (
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Fetch timeout")), 4000)),
     ]);
     const fetchedMsg = ((fetched as any).data ?? fetched) as RawGmailMessage;
-    
+
     // Fallback headers from partial data if fetched message lacks headers
     if (!fetchedMsg.payload?.headers && data.payload?.headers) {
       fetchedMsg.payload = { ...(fetchedMsg.payload ?? {}), headers: data.payload.headers };
     }
     return fetchedMsg;
-  } catch { return data; }
+  } catch {
+    return data;
+  }
 };
 
 export const getGmailMessages = async (input: {
@@ -68,8 +73,8 @@ export const getGmailMessages = async (input: {
     if (input.query) listParams.q = input.query;
 
     const raw = await tenantClient.gmail.api.messages.list(listParams);
-    const items = (raw && typeof raw === "object" && "messages" in raw) ? (raw.messages ?? []) : (Array.isArray(raw) ? raw : []);
-    
+    const items = raw && typeof raw === "object" && "messages" in raw ? raw.messages ?? [] : Array.isArray(raw) ? raw : [];
+
     const fullMsgs = await Promise.all(
       (items as Array<{ id?: string; entityId?: string; data?: RawGmailMessage } & RawGmailMessage>).map(async (m) => {
         const full = await fetchFullMessage(tenantClient, m);
@@ -77,96 +82,75 @@ export const getGmailMessages = async (input: {
         if (id) {
           try {
             await tenantClient.gmail.db.messages.upsertByEntityId(id, full as any);
-          } catch { /* ignore cache write error */ }
+          } catch {
+            /* ignore cache write error */
+          }
         }
         return full;
-      })
+      }),
     );
     return fullMsgs;
   };
 
   try {
-    const tenant = getTenant(input.userId);
-    let allMessages: RawGmailMessage[] = [];
+    return await withTokenRetry(input.userId, async (tenant) => {
+      let allMessages: RawGmailMessage[] = [];
 
-    if (input.query) {
-      // Search query — run live search
-      try {
+      if (input.query) {
+        // Search query — run live search
         allMessages = await fetchLiveMessages(tenant);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
-          const { setupUserSync } = await import("../sync/service");
-          await setupUserSync(input.userId);
-          const freshTenant = getTenant(input.userId);
-          allMessages = await fetchLiveMessages(freshTenant);
-        } else {
-          throw err;
-        }
-      }
-    } else {
-      // Instant SWR: Read local DB cache immediately for instant response
-      const rawCache = await tenant.gmail.db.messages.list({});
-      const cacheList = Array.isArray(rawCache) ? rawCache : [];
-
-      if (cacheList.length > 0) {
-        allMessages = cacheList.map((m) => {
-          const cachedRow = m as unknown as { data?: RawGmailMessage } | null;
-          return (cachedRow?.data ?? m);
-        });
-
-        // Trigger non-blocking background live sync so new emails populate automatically
-        void refreshGmailMessages(input.userId).catch((err) => {
-          console.log(`[GmailService] Background auto-sync skipped: ${err instanceof Error ? err.message : String(err)}`);
-        });
       } else {
-        // Cache empty — fetch live synchronously so user gets messages on first load
-        console.log(`[GmailService] Cache empty for ${input.userId ?? "default"}, fetching live from Gmail API...`);
-        try {
+        // Instant SWR: Read local DB cache immediately for instant response
+        const rawCache = await tenant.gmail.db.messages.list({});
+        const cacheList = Array.isArray(rawCache) ? rawCache : [];
+
+        if (cacheList.length > 0) {
+          allMessages = cacheList.map((m) => {
+            const cachedRow = m as unknown as { data?: RawGmailMessage } | null;
+            return cachedRow?.data ?? m;
+          });
+
+          // Trigger non-blocking background live sync so new emails populate automatically
+          void refreshGmailMessages(input.userId).catch((err) => {
+            console.log(`[GmailService] Background auto-sync skipped: ${err instanceof Error ? err.message : String(err)}`);
+          });
+        } else {
+          // Cache empty — fetch live synchronously so user gets messages on first load
+          console.log(`[GmailService] Cache empty for ${input.userId ?? "default"}, fetching live from Gmail API...`);
           allMessages = await fetchLiveMessages(tenant);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
-            const { setupUserSync } = await import("../sync/service");
-            await setupUserSync(input.userId);
-            const freshTenant = getTenant(input.userId);
-            allMessages = await fetchLiveMessages(freshTenant);
-          } else {
-            throw err;
-          }
         }
       }
-    }
 
-    // Deduplicate by message ID
-    const seenIds = new Set<string>();
-    allMessages = allMessages.filter((m) => {
-      const id = m?.id;
-      if (!id) return true;
-      if (seenIds.has(id)) return false;
-      seenIds.add(id);
-      return true;
+      // Deduplicate by message ID
+      const seenIds = new Set<string>();
+      allMessages = allMessages.filter((m) => {
+        const id = m?.id;
+        if (!id) return true;
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
+
+      const sorted = sortByInternalDateDesc(allMessages);
+      const paged = sorted.slice(offset, offset + limit + 1);
+      const hasMore = paged.length > limit;
+      const messages = hasMore ? paged.slice(0, limit) : paged;
+
+      const duration = Date.now() - startTime;
+      telemetryService.recordToolCall("web_search", duration);
+      telemetryService.recordToolCall("vector_query", Math.round(duration * 0.1));
+      telemetryService.recordActivity(
+        "GmailService",
+        `Fetched ${messages.length} messages (SWR Instant)`,
+        "done",
+        duration,
+      );
+
+      return {
+        messages: messages.map((m) => mapGmailMessageSummary(m)),
+        nextCursor: hasMore ? String(offset + limit) : undefined,
+      };
     });
-
-    const sorted = sortByInternalDateDesc(allMessages);
-    const paged = sorted.slice(offset, offset + limit + 1);
-    const hasMore = paged.length > limit;
-    const messages = hasMore ? paged.slice(0, limit) : paged;
-
-    const duration = Date.now() - startTime;
-    telemetryService.recordToolCall("web_search", duration);
-    telemetryService.recordToolCall("vector_query", Math.round(duration * 0.1));
-    telemetryService.recordActivity(
-      "GmailService",
-      `Fetched ${messages.length} messages (SWR Instant)`,
-      "done",
-      duration
-    );
-
-    return {
-      messages: messages.map((m) => mapGmailMessageSummary(m)),
-      nextCursor: hasMore ? String(offset + limit) : undefined,
-    };
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -177,26 +161,25 @@ export const getGmailMessages = async (input: {
 
 export const getGmailMessageById = async (messageId: string, userId?: string) => {
   try {
-    const tenant = getTenant(userId);
-    let entity = await tenant.gmail.db.messages.findByEntityId(messageId);
-    if (!entity) {
-      const fetched = await tenant.gmail.api.messages.get({ id: messageId });
-      const data = (fetched && typeof fetched === "object" && "data" in fetched && fetched.data)
-        ? fetched.data
-        : fetched;
-      if (data) {
-        const upsertData = {
-          ...data,
-          id: messageId,
-        } as Parameters<typeof tenant.gmail.db.messages.upsertByEntityId>[1];
-        await tenant.gmail.db.messages.upsertByEntityId(messageId, upsertData);
-        entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+    return await withTokenRetry(userId, async (tenant) => {
+      let entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+      if (!entity) {
+        const fetched = await tenant.gmail.api.messages.get({ id: messageId });
+        const data = fetched && typeof fetched === "object" && "data" in fetched && fetched.data ? fetched.data : fetched;
+        if (data) {
+          const upsertData = {
+            ...data,
+            id: messageId,
+          } as Parameters<typeof tenant.gmail.db.messages.upsertByEntityId>[1];
+          await tenant.gmail.db.messages.upsertByEntityId(messageId, upsertData);
+          entity = await tenant.gmail.db.messages.findByEntityId(messageId);
+        }
       }
-    }
-    if (!entity) return null;
-    const cachedRow = entity as unknown as { data?: RawGmailMessage } | null;
-    const entityData = cachedRow?.data ?? entity;
-    return mapGmailMessageDetail(entityData);
+      if (!entity) return null;
+      const cachedRow = entity as unknown as { data?: RawGmailMessage } | null;
+      const entityData = cachedRow?.data ?? entity;
+      return mapGmailMessageDetail(entityData);
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -214,21 +197,22 @@ export const createGmailDraft = async (input: {
   userId?: string;
 }) => {
   try {
-    const tenant = getTenant(input.userId);
-    const params: GmailDraftCreateParams = {
-      draft: {
-        message: {
-          raw: Buffer.from(
-            `To: ${input.to.join(", ")}\r\n` +
-              `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
-              `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
-              `Subject: ${input.subject}\r\n\r\n${input.body}`,
-          ).toString("base64url"),
+    return await withTokenRetry(input.userId, async (tenant) => {
+      const params: GmailDraftCreateParams = {
+        draft: {
+          message: {
+            raw: Buffer.from(
+              `To: ${input.to.join(", ")}\r\n` +
+                `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
+                `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
+                `Subject: ${input.subject}\r\n\r\n${input.body}`,
+            ).toString("base64url"),
+          },
         },
-      },
-    };
-    const draft = await tenant.gmail.api.drafts.create(params);
-    return draft;
+      };
+      const draft = await tenant.gmail.api.drafts.create(params);
+      return draft;
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -239,10 +223,11 @@ export const createGmailDraft = async (input: {
 
 export const sendGmailDraft = async (draftId: string, userId?: string) => {
   try {
-    const tenant = getTenant(userId);
-    const params: GmailDraftSendParams = { id: draftId };
-    const sentDraft = await tenant.gmail.api.drafts.send(params);
-    return sentDraft;
+    return await withTokenRetry(userId, async (tenant) => {
+      const params: GmailDraftSendParams = { id: draftId };
+      const sentDraft = await tenant.gmail.api.drafts.send(params);
+      return sentDraft;
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -260,17 +245,18 @@ export const sendGmailMessage = async (input: {
   userId?: string;
 }) => {
   try {
-    const tenant = getTenant(input.userId);
-    const params: GmailMessageSendParams = {
-      raw: Buffer.from(
-        `To: ${input.to.join(", ")}\r\n` +
-          `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
-          `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
-          `Subject: ${input.subject}\r\n\r\n${input.body}`,
-      ).toString("base64url"),
-    };
-    const sentMessage = await tenant.gmail.api.messages.send(params);
-    return sentMessage;
+    return await withTokenRetry(input.userId, async (tenant) => {
+      const params: GmailMessageSendParams = {
+        raw: Buffer.from(
+          `To: ${input.to.join(", ")}\r\n` +
+            `${input.cc ? `Cc: ${input.cc.join(", ")}\r\n` : ""}` +
+            `${input.bcc ? `Bcc: ${input.bcc.join(", ")}\r\n` : ""}` +
+            `Subject: ${input.subject}\r\n\r\n${input.body}`,
+        ).toString("base64url"),
+      };
+      const sentMessage = await tenant.gmail.api.messages.send(params);
+      return sentMessage;
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -281,37 +267,38 @@ export const sendGmailMessage = async (input: {
 
 export const getGmailDrafts = async (userId?: string) => {
   try {
-    const tenant = getTenant(userId);
-    const raw = await tenant.gmail.db.drafts.list({});
-    const drafts = Array.isArray(raw) ? raw : [];
-    
-    // Deduplicate drafts by message/draft ID
-    const seenIds = new Set<string>();
-    const uniqueDrafts = drafts.filter((d) => {
-      const rawDraft = d as unknown as {
-        data?: { message?: RawGmailMessage; id?: string };
-        message?: RawGmailMessage;
-        id?: string;
-      };
-      const msg = rawDraft.data?.message ?? rawDraft.data ?? rawDraft.message ?? rawDraft;
-      const id = msg?.id;
-      if (!id) return true;
-      if (seenIds.has(id)) return false;
-      seenIds.add(id);
-      return true;
-    });
+    return await withTokenRetry(userId, async (tenant) => {
+      const raw = await tenant.gmail.db.drafts.list({});
+      const drafts = Array.isArray(raw) ? raw : [];
 
-    return {
-      drafts: uniqueDrafts.map((d) => {
+      // Deduplicate drafts by message/draft ID
+      const seenIds = new Set<string>();
+      const uniqueDrafts = drafts.filter((d) => {
         const rawDraft = d as unknown as {
           data?: { message?: RawGmailMessage; id?: string };
           message?: RawGmailMessage;
           id?: string;
         };
         const msg = rawDraft.data?.message ?? rawDraft.data ?? rawDraft.message ?? rawDraft;
-        return mapGmailMessageSummary(msg);
-      }),
-    };
+        const id = msg?.id;
+        if (!id) return true;
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
+
+      return {
+        drafts: uniqueDrafts.map((d) => {
+          const rawDraft = d as unknown as {
+            data?: { message?: RawGmailMessage; id?: string };
+            message?: RawGmailMessage;
+            id?: string;
+          };
+          const msg = rawDraft.data?.message ?? rawDraft.data ?? rawDraft.message ?? rawDraft;
+          return mapGmailMessageSummary(msg);
+        }),
+      };
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -321,56 +308,34 @@ export const getGmailDrafts = async (userId?: string) => {
 };
 
 export const refreshGmailMessages = async (userId?: string) => {
-  const doRefresh = async (tenantClient: TenantType) => {
-    const labelsToSync = ["INBOX", "SENT"];
-    const seenIds = new Set<string>();
+  try {
+    await withTokenRetry(userId, async (tenantClient) => {
+      const labelsToSync = ["INBOX", "SENT"];
+      const seenIds = new Set<string>();
 
-    for (const label of labelsToSync) {
-      const listParams: GmailMessageListParams = {
-        maxResults: 50,
-        labelIds: [label],
-      };
-      const listRes = await tenantClient.gmail.api.messages.list(listParams);
-      const items = (listRes && typeof listRes === "object" && "messages" in listRes) ? (listRes.messages ?? []) : [];
-      for (const item of items) {
-        if (item?.id && !seenIds.has(item.id)) {
-          seenIds.add(item.id);
-          const fetched = await tenantClient.gmail.api.messages.get({ id: item.id });
-          const data = (fetched && typeof fetched === "object" && "data" in fetched && fetched.data)
-            ? fetched.data
-            : fetched;
-          if (data) {
-            const upsertData = {
-              ...data,
-              id: item.id,
-            } as Parameters<typeof tenantClient.gmail.db.messages.upsertByEntityId>[1];
-            await tenantClient.gmail.db.messages.upsertByEntityId(item.id, upsertData);
+      for (const label of labelsToSync) {
+        const listParams: GmailMessageListParams = {
+          maxResults: 50,
+          labelIds: [label],
+        };
+        const listRes = await tenantClient.gmail.api.messages.list(listParams);
+        const items = listRes && typeof listRes === "object" && "messages" in listRes ? listRes.messages ?? [] : [];
+        for (const item of items) {
+          if (item?.id && !seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            const fetched = await tenantClient.gmail.api.messages.get({ id: item.id });
+            const data = fetched && typeof fetched === "object" && "data" in fetched && fetched.data ? fetched.data : fetched;
+            if (data) {
+              const upsertData = {
+                ...data,
+                id: item.id,
+              } as Parameters<typeof tenantClient.gmail.db.messages.upsertByEntityId>[1];
+              await tenantClient.gmail.db.messages.upsertByEntityId(item.id, upsertData);
+            }
           }
         }
       }
-    }
-  };
-
-  try {
-    const tenant = getTenant(userId);
-    try {
-      await doRefresh(tenant);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if ((msg.includes("Unauthorized") || msg.includes("401")) && userId) {
-        console.log(`[GmailService] Refresh 401 for ${userId}, re-syncing tokens...`);
-        const { setupUserSync } = await import("../sync/service");
-        const syncResult = await setupUserSync(userId);
-        if (!syncResult.gmail) {
-          console.warn(`[GmailService] Token re-sync for user ${userId} could not authenticate Gmail. Skipping.`);
-          return;
-        }
-        const freshTenant = getTenant(userId);
-        await doRefresh(freshTenant);
-      } else {
-        throw err;
-      }
-    }
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",
@@ -381,9 +346,10 @@ export const refreshGmailMessages = async (userId?: string) => {
 
 export const trashGmailMessage = async (messageId: string, userId?: string) => {
   try {
-    const tenant = getTenant(userId);
-    await tenant.gmail.api.messages.trash({ id: messageId });
-    return { success: true };
+    return await withTokenRetry(userId, async (tenant) => {
+      await tenant.gmail.api.messages.trash({ id: messageId });
+      return { success: true };
+    });
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",

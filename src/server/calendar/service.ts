@@ -1,9 +1,9 @@
 import type { CreateCalendarInviteRequest } from "@/shared/calendar";
 
-import { getTenant } from "../corsair/tenant";
 import { mapCalendarEventSummary, type RawCalendarEvent } from "./mapper";
 import { AppError } from "../lib/app-error";
 import { telemetryService } from "../telemetry/service";
+import { withTokenRetry } from "../sync/service";
 import type { CalendarEventGetManyParams, CalendarEventCreateParams } from "../lib/corsair-types";
 
 export const getCalendarEvents = async (input: {
@@ -14,30 +14,14 @@ export const getCalendarEvents = async (input: {
 }) => {
   const startTime = Date.now();
 
-  const fetchEvents = async () => {
-    const tenant = getTenant(input.userId);
-    const params: CalendarEventGetManyParams = {};
-    if (input.weekStart) params.timeMin = input.weekStart;
-    if (input.weekEnd) params.timeMax = input.weekEnd;
-    if (input.query) params.q = input.query;
-    return tenant.googlecalendar.api.events.getMany(params);
-  };
-
   try {
-    let raw;
-    try {
-      raw = await fetchEvents();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if ((msg.includes("Unauthorized") || msg.includes("401")) && input.userId) {
-        console.log(`[CalendarService] Token unauthorized for ${input.userId}, running token re-sync...`);
-        const { setupUserSync } = await import("../sync/service");
-        await setupUserSync(input.userId);
-        raw = await fetchEvents();
-      } else {
-        throw err;
-      }
-    }
+    const raw = await withTokenRetry(input.userId, async (tenant) => {
+      const params: CalendarEventGetManyParams = {};
+      if (input.weekStart) params.timeMin = input.weekStart;
+      if (input.weekEnd) params.timeMax = input.weekEnd;
+      if (input.query) params.q = input.query;
+      return await tenant.googlecalendar.api.events.getMany(params);
+    });
 
     const list = Array.isArray(raw) ? raw : raw?.items ?? [];
 
@@ -47,7 +31,7 @@ export const getCalendarEvents = async (input: {
       "CalendarService",
       `Fetched ${list.length} events from calendar`,
       "done",
-      duration
+      duration,
     );
 
     return {
@@ -74,22 +58,15 @@ export const draftCalendarEvent = async (
 
 export const refreshCalendarEvents = async (userId?: string) => {
   try {
-    const tenant = getTenant(userId);
-    await tenant.googlecalendar.api.events.getMany({ maxResults: 50 });
+    await withTokenRetry(userId, async (tenant) => {
+      await tenant.googlecalendar.api.events.getMany({ maxResults: 50 });
+    });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    if ((msg.includes("Unauthorized") || msg.includes("401")) && userId) {
-      console.log(`[CalendarService] Token unauthorized during refresh for ${userId}, re-syncing...`);
-      const { setupUserSync } = await import("../sync/service");
-      await setupUserSync(userId);
-      const tenant = getTenant(userId);
-      await tenant.googlecalendar.api.events.getMany({ maxResults: 50 });
-    } else {
-      throw new AppError(
-        "CORSAIR_ERROR",
-        `Failed to refresh calendar: ${msg}`,
-      );
-    }
+    throw new AppError(
+      "CORSAIR_ERROR",
+      `Failed to refresh calendar: ${msg}`,
+    );
   }
 };
 
@@ -99,8 +76,6 @@ export const createCalendarInvite = async (
 ) => {
   const startTime = Date.now();
   try {
-    const tenant = getTenant(userId);
-
     const params: CalendarEventCreateParams = {
       event: {
         summary: input.title,
@@ -114,7 +89,10 @@ export const createCalendarInvite = async (
         })),
       },
     };
-    const event = await tenant.googlecalendar.api.events.create(params);
+
+    const event = await withTokenRetry(userId, async (tenant) => {
+      return await tenant.googlecalendar.api.events.create(params);
+    });
 
     const duration = Date.now() - startTime;
     telemetryService.recordToolCall("code_exec", duration); // Calendar API calls
@@ -122,7 +100,7 @@ export const createCalendarInvite = async (
       "CalendarService",
       `Created calendar invite: "${input.title}"`,
       "done",
-      duration
+      duration,
     );
 
     return event;
@@ -136,12 +114,13 @@ export const createCalendarInvite = async (
 
 export const deleteCalendarEvent = async (eventId: string, userId?: string) => {
   try {
-    const tenant = getTenant(userId);
-    await tenant.googlecalendar.api.events.delete({
-      calendarId: "primary",
-      id: eventId,
+    return await withTokenRetry(userId, async (tenant) => {
+      await tenant.googlecalendar.api.events.delete({
+        calendarId: "primary",
+        id: eventId,
+      });
+      return { success: true };
     });
-    return { success: true };
   } catch (error: unknown) {
     throw new AppError(
       "CORSAIR_ERROR",

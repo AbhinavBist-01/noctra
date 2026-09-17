@@ -51,13 +51,14 @@ export const previewCommand = async (
 
 export const executeCommand = async (
   input: CommandExecuteRequest,
+  userId?: string,
 ): Promise<CommandExecuteResponse> => {
   const startTime = Date.now();
   telemetryService.setActiveStep("tools");
   telemetryService.recordActivity("Scheduler", `Executing ${input.actions.length} actions`, "running");
 
   try {
-    const results = await executeActions(input.actions);
+    const results = await executeActions(input.actions, userId);
     const latency = Date.now() - startTime;
     telemetryService.setActiveStep("response");
     

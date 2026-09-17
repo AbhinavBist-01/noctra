@@ -29,9 +29,8 @@ export const auth = betterAuth({
         after: async (session) => {
           console.log(`[better-auth] Session created for user ${session.userId}, ensuring fresh token and webhooks...`);
           try {
-            const { setupUserSync, refreshGoogleAccessToken } = await import("../sync/service");
+            const { setupUserSync } = await import("../sync/service");
             const { setupWatches } = await import("../webhooks/ngrok");
-            await refreshGoogleAccessToken(session.userId, false);
             await setupUserSync(session.userId);
             await setupWatches(session.userId).catch(() => {});
           } catch (e) {

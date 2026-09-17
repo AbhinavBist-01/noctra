@@ -7,6 +7,7 @@ import { createCalendarInvite } from "../calendar/service";
 
 export const executeAction = async (
   action: CommandPreviewAction,
+  userId?: string,
 ): Promise<CommandExecutionResult> => {
   try {
     if (action.type === "email_draft") {
@@ -14,6 +15,7 @@ export const executeAction = async (
         to: action.to,
         subject: action.subject,
         body: action.body,
+        userId,
       });
       return {
         actionId: action.id,
@@ -28,6 +30,7 @@ export const executeAction = async (
         to: action.to,
         subject: action.subject,
         body: action.body,
+        userId,
       });
       return {
         actionId: action.id,
@@ -38,14 +41,17 @@ export const executeAction = async (
     }
 
     if (action.type === "calendar_invite") {
-      const result = await createCalendarInvite({
-        title: action.title,
-        description: action.description,
-        start: action.start,
-        end: action.end,
-        timezone: action.timezone,
-        attendees: action.attendees,
-      });
+      const result = await createCalendarInvite(
+        {
+          title: action.title,
+          description: action.description,
+          start: action.start,
+          end: action.end,
+          timezone: action.timezone,
+          attendees: action.attendees,
+        },
+        userId,
+      );
       return {
         actionId: action.id,
         type: action.type,
@@ -73,11 +79,12 @@ export const executeAction = async (
 
 export const executeActions = async (
   actions: CommandPreviewAction[],
+  userId?: string,
 ): Promise<CommandExecutionResult[]> => {
   const results: CommandExecutionResult[] = [];
 
   for (const action of actions) {
-    const result = await executeAction(action);
+    const result = await executeAction(action, userId);
     results.push(result);
   }
 
